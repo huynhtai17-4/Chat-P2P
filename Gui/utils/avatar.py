@@ -1,0 +1,63 @@
+from PySide6.QtWidgets import QLabel
+from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QPen
+from PySide6.QtCore import Qt, QRectF
+
+def load_circular_pixmap(image_path, size=40, border_width=0, border_color="#dddddd"):
+    """
+    Tải ảnh, cắt tròn, vẽ viền, và căn giữa ảnh.
+    """
+    pixmap = QPixmap(image_path)
+    if pixmap.isNull():
+        # Nếu không tìm thấy ảnh, tạo placeholder
+        pixmap = QPixmap(size, size)
+        pixmap.fill(QColor("#888888"))
+    # Tạo pixmap tròn với nền trong suốt
+    circular_pixmap = QPixmap(size, size)
+    circular_pixmap.fill(Qt.transparent)
+    
+    painter = QPainter(circular_pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)  # Khử răng cưa
+    # 1. Vẽ viền (nếu có)
+    if border_width > 0:
+        painter.setPen(Qt.NoPen)  # Không cần viền cho vòng tròn này
+        painter.setBrush(QColor(border_color))
+        painter.drawEllipse(0, 0, size, size)  # Vẽ vòng tròn viền
+    # 2. Tính toán vị trí ảnh (bên trong viền)
+    image_inset = border_width
+    image_size = size - (border_width * 2)
+    
+    # 3. Tạo Path (đường cắt) cho ảnh
+    # Path này là vòng tròn nhỏ hơn, bên trong viền
+    path = QPainterPath()
+    path.addEllipse(image_inset, image_inset, image_size, image_size)
+    painter.setClipPath(path)  # Đặt đường cắt
+    
+    # 4. Vẽ ảnh (với căn giữa)
+    
+    # Scale ảnh gốc sao cho nó lấp đầy (expand)
+    scaled_pixmap = pixmap.scaled(
+        size, size,
+        Qt.KeepAspectRatioByExpanding,  # Scale cho đến khi lấp đầy
+        Qt.SmoothTransformation
+    )
+    
+    scaled_width = scaled_pixmap.width()
+    scaled_height = scaled_pixmap.height()
+    
+    x_offset = (size - scaled_width) / 2
+    y_offset = (size - scaled_height) / 2
+    
+    painter.drawPixmap(x_offset, y_offset, scaled_pixmap)
+    
+    painter.end()
+    return circular_pixmap
+
+class Avatar(QLabel):
+    """
+    A custom QLabel for displaying circular avatars with optional border.
+    """
+    def __init__(self, image_path, size=40, border_width=0, border_color="#dddddd", parent=None):
+        super().__init__(parent)
+        pixmap = load_circular_pixmap(image_path, size, border_width, border_color)
+        self.setPixmap(pixmap)
+        self.setFixedSize(size, size)
