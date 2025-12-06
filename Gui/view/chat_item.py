@@ -35,9 +35,23 @@ class ChatItemWidget(QFrame):
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(5, 5, 5, 5)
         main_layout.setSpacing(10)
-        # 1. Avatar (Placeholder)
+        # 1. Avatar (Placeholder) với online indicator
+        avatar_container = QFrame()
+        avatar_container.setObjectName("AvatarContainer")
+        avatar_layout = QVBoxLayout(avatar_container)
+        avatar_layout.setContentsMargins(0, 0, 0, 0)
+        avatar_layout.setSpacing(0)
+        
         avatar = QLabel()
         avatar.setObjectName("AvatarLabel")
+        avatar_layout.addWidget(avatar)
+        
+        # Online indicator (dấu chấm đỏ) - ẩn mặc định
+        self.online_indicator = QLabel()
+        self.online_indicator.setObjectName("OnlineIndicator")
+        self.online_indicator.setFixedSize(12, 12)
+        self.online_indicator.setVisible(False)  # Ẩn mặc định
+        avatar_layout.addWidget(self.online_indicator, 0, Qt.AlignRight | Qt.AlignBottom)
        
         # 2. Cột nội dung (Tên + Tin nhắn)
         text_layout = QVBoxLayout()
@@ -70,9 +84,16 @@ class ChatItemWidget(QFrame):
         else:
             time_layout.addStretch() # Thêm stretch nếu không có unread
         # Thêm vào layout chính
-        main_layout.addWidget(avatar)
+        main_layout.addWidget(avatar_container)
         main_layout.addLayout(text_layout, 1) # 1 = co giãn
         main_layout.addLayout(time_layout)
+        
+        # Store data for easy access
+        self.contact_name = name
+        self.last_message = message
+        self.time_label = time
+        self.unread_count = unread_count
+        self.is_online = False
 
     def set_selected(self, selected):
         """Thiết lập trạng thái selected cho chat item"""
@@ -97,3 +118,9 @@ class ChatItemWidget(QFrame):
         for child in self.findChildren(QLabel):
             child.style().unpolish(child)
             child.style().polish(child)
+    
+    def set_online_status(self, is_online: bool):
+        """Thiết lập trạng thái online/offline"""
+        self.is_online = is_online
+        if hasattr(self, 'online_indicator'):
+            self.online_indicator.setVisible(is_online)

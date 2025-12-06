@@ -1,0 +1,38 @@
+[
+  {
+    "message_id": "3861835b-188a-4cc1-bd14-9f3832761d4b",
+    "sender_id": "ffe99789-5f2e-46d5-9ee1-4e1220712f8e",
+    "sender_name": "as@gmail.com",
+    "receiver_id": "ccee7894-f92d-437d-8776-a68ef59f7c4a",
+    "content": "a",
+    "timestamp": 1763790294.0587416,
+    "msg_type": "text"
+  },
+  {
+    "message_id": "d2fdf128-4e0f-493e-8f03-ccd35cbb2e24",
+    "sender_id": "ccee7894-f92d-437d-8776-a68ef59f7c4a",
+    "sender_name": "a@gmail.com",
+    "receiver_id": "ffe99789-5f2e-46d5-9ee1-4e1220712f8e",
+    "content": "a",
+    "timestamp": 1763790297.7384171,
+    "msg_type": "text"
+  },
+  {
+    "message_id": "6bfe768b-0ba9-4875-a3db-c44800175829",
+    "sender_id": "ffe99789-5f2e-46d5-9ee1-4e1220712f8e",
+    "sender_name": "as@gmail.com",
+    "receiver_id": "ccee7894-f92d-437d-8776-a68ef59f7c4a",
+    "content": "chào pro",
+    "timestamp": 1763790302.11396,
+    "msg_type": "text"
+  },
+  {
+    "message_id": "fd5400cc-c849-4732-ae3a-1870b4f14a77",
+    "sender_id": "ccee7894-f92d-437d-8776-a68ef59f7c4a",
+    "sender_name": "a@gmail.com",
+    "receiver_id": "ffe99789-5f2e-46d5-9ee1-4e1220712f8e",
+    "content": "khum chào",
+    "timestamp": 1763790308.1045086,
+    "msg_type": "text"
+  }
+]

@@ -18,6 +18,7 @@ class ChatListController(QObject):
         self.current_tab = "DIRECT"
         self.current_chat_item = None
         self.all_chat_items = []
+        self._peer_refresh_handler = None
         
         # Kết nối signals
         self._connect_signals()
@@ -77,6 +78,7 @@ class ChatListController(QObject):
         self._filter_chats_by_tab(tab_name)
 
         self.tab_changed.emit(tab_name)
+        self.request_peer_refresh()
 
     def _filter_chats_by_tab(self, tab_name):
         """Filter chat items theo tab selected"""
@@ -145,15 +147,25 @@ class ChatListController(QObject):
     
     def _on_chat_item_clicked(self, item):
         """Xử lý khi click vào chat item"""
+        if not item:
+            return
+            
         chat_widget = self.chat_list_widget.itemWidget(item)
         if not chat_widget:
             return
         
-        # Bỏ chọn item cũ (nếu có)
+        # Bỏ chọn item cũ (nếu có) - kiểm tra item còn hợp lệ
         if self.current_chat_item:
-            old_widget = self.chat_list_widget.itemWidget(self.current_chat_item)
-            if old_widget and hasattr(old_widget, 'set_selected'):
-                old_widget.set_selected(False)
+            try:
+                # Kiểm tra item còn tồn tại trong list
+                row = self.chat_list_widget.row(self.current_chat_item)
+                if row >= 0:
+                    old_widget = self.chat_list_widget.itemWidget(self.current_chat_item)
+                    if old_widget and hasattr(old_widget, 'set_selected'):
+                        old_widget.set_selected(False)
+            except (RuntimeError, AttributeError):
+                # Item đã bị xóa, bỏ qua
+                self.current_chat_item = None
         
         # Chọn item mới
         if hasattr(chat_widget, 'set_selected'):
@@ -176,33 +188,51 @@ class ChatListController(QObject):
             pass
     
     def _get_chat_id(self, chat_widget):
-        """Lấy chat ID từ widget (có thể customize theo data structure)"""
-        # Trong ví dụ này dùng tên làm ID, có thể thay đổi theo implementation
+        """Lấy chat ID từ widget (peer_id nếu có, nếu không thì dùng tên)"""
+        # Ưu tiên dùng peer_id nếu có
+        peer_id = getattr(chat_widget, 'peer_id', None)
+        if peer_id:
+            return peer_id
+        # Fallback về tên
         return getattr(chat_widget, 'contact_name', 'unknown')
     
     def add_chat(self, name, last_message, time_str, unread_count=0, selected=False):
-        """Thêm chat mới vào list (đồng bộ với controller)"""
-        from Gui.view.chat_list import ChatList  # Import để tránh circular import
-        
-        # Gọi method gốc từ ChatList
+        """Helper to append chat items via parent widget."""
         parent = self.chat_list_widget.parent()
         if hasattr(parent, 'add_chat'):
             parent.add_chat(name, last_message, time_str, unread_count, selected)
-            
-            # Cache lại items
             self._cache_all_chat_items()
     
     def clear_selection(self):
         """Xóa selection hiện tại"""
         if self.current_chat_item:
-            old_widget = self.chat_list_widget.itemWidget(self.current_chat_item)
-            if old_widget and hasattr(old_widget, 'set_selected'):
-                old_widget.set_selected(False)
-            self.current_chat_item = None
+            try:
+                # Kiểm tra item còn tồn tại trong list
+                row = self.chat_list_widget.row(self.current_chat_item)
+                if row >= 0:
+                    old_widget = self.chat_list_widget.itemWidget(self.current_chat_item)
+                    if old_widget and hasattr(old_widget, 'set_selected'):
+                        old_widget.set_selected(False)
+            except (RuntimeError, AttributeError):
+                # Item đã bị xóa, bỏ qua
+                pass
+            finally:
+                self.current_chat_item = None
     
     def get_current_chat_info(self):
         """Lấy thông tin chat đang selected"""
         if not self.current_chat_item:
+            return None
+        
+        try:
+            # Kiểm tra item còn tồn tại trong list
+            row = self.chat_list_widget.row(self.current_chat_item)
+            if row < 0:
+                self.current_chat_item = None
+                return None
+        except (RuntimeError, AttributeError):
+            # Item đã bị xóa
+            self.current_chat_item = None
             return None
         
         chat_widget = self.chat_list_widget.itemWidget(self.current_chat_item)
@@ -216,3 +246,12 @@ class ChatListController(QObject):
             'time': getattr(chat_widget, 'time_label', ''),
             'unread_count': getattr(chat_widget, 'unread_count', 0)
         }
+
+    def set_peer_refresh_handler(self, handler):
+        """Đăng ký callback để trigger refresh danh sách peer từ Core."""
+        self._peer_refresh_handler = handler
+
+    def request_peer_refresh(self):
+        if self._peer_refresh_handler:
+            self._peer_refresh_handler()
+    

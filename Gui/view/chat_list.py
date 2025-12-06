@@ -9,18 +9,22 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QLineEdit
 from ..utils.avatar import load_circular_pixmap
+import os
 
 # Import component con
 from .chat_item import ChatItemWidget 
 from Gui.controller.chat_list_controller import ChatListController
 
 class ChatList(QFrame):
-    def __init__(self):
+    def __init__(self, user_name: str = "User", avatar_path: str = None):
         super().__init__()
         self.setObjectName("LeftSidebar")
         self.setMinimumWidth(240) 
         self.setMaximumWidth(450)
         self.setMinimumHeight(500)
+        
+        self.user_name = user_name
+        self.avatar_path = avatar_path
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
@@ -34,16 +38,21 @@ class ChatList(QFrame):
         user_avatar = QLabel()
         user_avatar.setObjectName("HeaderUserAvatar")
         user_avatar.setFixedSize(60, 60)
-        avatar_pixmap = load_circular_pixmap("Gui/assets/images/avatar1.jpg", size=60, border_width=2, border_color="#dddddd")
+        
+        # Use user's avatar if provided, otherwise use default
+        if avatar_path and os.path.exists(avatar_path):
+            avatar_pixmap = load_circular_pixmap(avatar_path, size=60, border_width=2, border_color="#dddddd")
+        else:
+            avatar_pixmap = load_circular_pixmap("Gui/assets/images/avatar1.jpg", size=60, border_width=2, border_color="#dddddd")
         user_avatar.setPixmap(avatar_pixmap)
         user_avatar.setAlignment(Qt.AlignCenter)
 
-        user_name = QLabel("Tài Huỳnh")
-        user_name.setObjectName("UserNameLabel")
-        user_name.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        user_name_label = QLabel(user_name)
+        user_name_label.setObjectName("UserNameLabel")
+        user_name_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
 
         header_layout.addWidget(user_avatar)
-        header_layout.addWidget(user_name)
+        header_layout.addWidget(user_name_label)
         header_layout.addStretch()
 
         layout.addLayout(header_layout)
@@ -118,31 +127,55 @@ class ChatList(QFrame):
         self.controller.set_search_input(self.search_input)
         self.controller.set_tab_labels(self.tab_direct, self.tab_groups, self.tab_public)
 
-        # Thêm dữ liệu mẫu
-        self.populate_chat_list()
+        # Không populate dữ liệu mẫu nữa, danh sách sẽ được cập nhật từ dữ liệu ứng dụng
+        # self.populate_chat_list()
 
-    def add_chat(self, name, last_message, time_str, unread_count=0, selected=False):
+    def add_chat(self, name, last_message, time_str, unread_count=0, selected=False, is_online=False, peer_id=None):
         """Hàm trợ giúp để thêm ChatItemWidget vào QListWidget"""
         chat_item_widget = ChatItemWidget(name, last_message, time_str, unread_count, selected)
+        chat_item_widget.set_online_status(is_online)
+        if peer_id:
+            chat_item_widget.peer_id = peer_id
         list_item = QListWidgetItem(self.chat_list_widget)
         list_item.setSizeHint(chat_item_widget.sizeHint())
         self.chat_list_widget.addItem(list_item)
         self.chat_list_widget.setItemWidget(list_item, chat_item_widget)
 
     def populate_chat_list(self):
-        """Thêm dữ liệu mẫu"""
-        chats_data = [
-            ("Ankit Mishra", "Are we meeting today? Get's aaaaaaaaaaaaaaaaaaaaaaaaaaaaa ", "3:43 PM", 5, False),
-            ("Akenksha Sinha", "I've mailed you the file check...", "2:34 PM", 0, False),
-            ("Harshit Nagar", "last night party was awesome...", "3:01 PM", 0, False),
-            ("Kirti Yadav", "Are you there ?", "9:00 AM", 0, False),
-            ("Ashish Singh", "Bro, I need your help. Call me...", "9:15 AM", 0, False),
-            ("Harshit Nagar", "last night party was awesome...", "1:42 PM", 0, False),
-            ("Kirti yadav", "Are you there ?", "9:00 AM", 0, False),
-            ("Ashish Singh", "Bro, I need your help. Call me...", "9:00 AM", 0, False),
-        ]
-        for name, msg, time_str, unread, selected in chats_data:
-            self.add_chat(name, msg, time_str, unread, selected)
+        """Thêm dữ liệu mẫu (deprecated - dùng load_conversations_from_core)"""
+        pass
+    
+    def load_conversations(self, conversations: list):
+        """Load a list of conversation dictionaries and display them."""
+        # Clear selection trước khi clear list để tránh RuntimeError
+        self.controller.clear_selection()
+        self.chat_list_widget.clear()
+        self.controller.all_chat_items = []
+
+        for conv in conversations:
+            peer_name = conv.get('peer_name', 'Unknown')
+            last_message = conv.get('last_message', '')
+            time_str = conv.get('time_str', '')
+            unread_count = conv.get('unread_count', 0)
+            is_online = conv.get('is_online', False)
+            peer_id = conv.get('peer_id', '')
+
+            chat_item_widget = ChatItemWidget(
+                name=peer_name,
+                message=last_message,
+                time=time_str,
+                unread_count=unread_count,
+                is_active=False
+            )
+            chat_item_widget.set_online_status(is_online)
+            chat_item_widget.peer_id = peer_id
+
+            list_item = QListWidgetItem(self.chat_list_widget)
+            list_item.setSizeHint(chat_item_widget.sizeHint())
+            self.chat_list_widget.addItem(list_item)
+            self.chat_list_widget.setItemWidget(list_item, chat_item_widget)
+
+        self.controller._cache_all_chat_items()
 
     # Các method để tương tác với controller từ bên ngoài
     def get_controller(self):

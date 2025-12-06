@@ -169,6 +169,24 @@ QLabel#AvatarLabel {
     max-height: 40px;
 }
 
+/* Avatar container với online indicator */
+QFrame#AvatarContainer {
+    background-color: transparent;
+    min-width: 40px;
+    max-width: 40px;
+}
+
+/* Online indicator (dấu chấm đỏ) */
+QLabel#OnlineIndicator {
+    background-color: #4CAF50; /* Màu xanh lá (online) */
+    border-radius: 6px; /* Tròn */
+    border: 2px solid #FFFFFF; /* Viền trắng */
+    min-width: 12px;
+    max-width: 12px;
+    min-height: 12px;
+    max-height: 12px;
+}
+
 /* Tên người dùng */
 QLabel#NameLabel {
     font-size: 14px;
@@ -234,6 +252,11 @@ QPushButton#IconButton {
     border: none; 
     padding: 5px;
     background-color: transparent;
+}
+
+QPushButton#IconButton:hover {
+    background-color: #F0F0F0;
+    border-radius: 4px;
 }
 
 QLabel#ChatAvatarLabel {
