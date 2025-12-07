@@ -316,8 +316,9 @@ class MainWindow(QMainWindow):
     def _on_suggestion_add_requested(self, peer_id: str, peer_name: str):
         """
         Handle when user clicks Add button on a suggestion.
-        This sends a FRIEND_REQUEST to the peer (not add directly).
+        Sends a FRIEND_REQUEST to the peer so they can accept/reject.
         After sending, remove peer from suggestions immediately and track as pending.
+        Once the peer accepts, they will be added to friends list automatically.
         """
         if not peer_id:
             QMessageBox.warning(self, "Friend Request", "Invalid peer ID.")
@@ -326,14 +327,16 @@ class MainWindow(QMainWindow):
         # Mark as pending request (so it won't appear in suggestions)
         self.pending_friend_requests[peer_id] = peer_name
         
+        # Send friend request to the peer
         success = self.chat_core.send_friend_request(peer_id)
+        
         if success:
             # Remove peer from suggestions immediately (user has sent request)
             # MessageRouter will add to _outgoing_requests, so it won't appear in suggestions
             self._remove_peer_from_suggestions(peer_id)
             # Force immediate refresh of suggestions to update UI
             self._refresh_suggestions(debounced=True)
-            QMessageBox.information(self, "Friend Request", f"Friend request sent to {peer_name}!")
+            QMessageBox.information(self, "Friend Request", f"Friend request sent to {peer_name}! They will receive a notification to accept or reject.")
         else:
             # Remove from pending if send failed
             self.pending_friend_requests.pop(peer_id, None)
@@ -597,7 +600,14 @@ class MainWindow(QMainWindow):
             # Remove peer from suggestions (it's now a friend)
             # MessageRouter will emit temp_peer_removed signal, but we refresh here too
             self._remove_peer_from_suggestions(peer_id)
-            QMessageBox.information(self, "Friend Added", f"You are now friends with {display_name}!")
+            
+            # Automatically open chat with this peer
+            self.current_peer_id = peer_id
+            self.unread_counts[peer_id] = 0
+            self._load_history_to_center(peer_id)
+            self._refresh_chat_list()
+            
+            QMessageBox.information(self, "Friend Added", f"You are now friends with {display_name}! Chat window opened.")
         else:
             QMessageBox.warning(self, "Error", f"Failed to accept friend request from {display_name}.")
     
@@ -641,7 +651,13 @@ class MainWindow(QMainWindow):
                     peer_name = peer.get("display_name", "Unknown")
                     break
             
-            QMessageBox.information(self, "Friend Request Accepted", f"{peer_name} accepted your friend request!")
+            # Automatically open chat with this peer
+            self.current_peer_id = peer_id
+            self.unread_counts[peer_id] = 0
+            self._load_history_to_center(peer_id)
+            self._refresh_chat_list()
+            
+            QMessageBox.information(self, "Friend Request Accepted", f"{peer_name} accepted your friend request! Chat window opened.")
         except Exception as e:
             import traceback
             import logging
