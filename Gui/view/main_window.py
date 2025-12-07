@@ -504,6 +504,7 @@ class MainWindow(QMainWindow):
         """
         try:
             # This runs in main thread - safe to show dialog
+            print(f"[DEBUG] Friend request signal received for {display_name} ({peer_id})")
             log.info("Friend request signal received for %s (%s)", display_name, peer_id)
             
             # Check if already a friend - ignore
@@ -534,10 +535,11 @@ class MainWindow(QMainWindow):
             self._show_friend_request_dialog(peer_id, display_name)
         except Exception as e:
             import traceback
-            import logging
-            log = logging.getLogger(__name__)
+            # Use the log from module level, don't redefine it
             log.error(f"Error in _on_friend_request_received_signal: {e}")
             traceback.print_exc()
+            # Also show error to user
+            QMessageBox.critical(self, "Error", f"Error processing friend request: {e}")
     
     def _show_friend_request_dialog(self, peer_id: str, display_name: str):
         """
@@ -688,10 +690,10 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Friend Request Accepted", f"{peer_name} accepted your friend request! Chat window opened.")
         except Exception as e:
             import traceback
-            import logging
-            log = logging.getLogger(__name__)
+            # Use the log from module level, don't redefine it
             log.error(f"Error in _on_friend_accepted_signal: {e}")
             traceback.print_exc()
+            QMessageBox.critical(self, "Error", f"Error processing friend accept: {e}")
     
     def _on_friend_rejected_signal(self, peer_id: str):
         """
