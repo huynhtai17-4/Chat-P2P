@@ -31,7 +31,8 @@ class MessageRouter:
     """
 
     def __init__(self):
-        self.peer_id = str(uuid.uuid4())
+        # peer_id will be loaded from profile or generated if not exists
+        self.peer_id: Optional[str] = None  # Will be set in connect_core
         self.display_name: Optional[str] = None
         self.tcp_port = config.TCP_BASE_PORT
 
@@ -91,6 +92,17 @@ class MessageRouter:
         self.data_manager = DataManager(username)
         profile = self.data_manager.load_profile()
         
+        # Load peer_id from profile.json if exists, otherwise generate new one
+        # This ensures we keep the same peer_id across restarts
+        saved_peer_id = profile.get("peer_id")
+        if saved_peer_id and isinstance(saved_peer_id, str) and len(saved_peer_id) > 0:
+            self.peer_id = saved_peer_id
+            log.info("Loaded peer_id %s from profile.json", self.peer_id)
+        else:
+            # Generate new peer_id and save it
+            self.peer_id = str(uuid.uuid4())
+            log.info("Generated new peer_id %s (saving to profile)", self.peer_id)
+        
         # Load TCP port from profile.json if exists, otherwise use provided tcp_port
         # This ensures we use the same port across restarts
         saved_tcp_port = profile.get("tcp_port")
@@ -100,7 +112,6 @@ class MessageRouter:
         else:
             # Use provided port and save it
             self.tcp_port = tcp_port
-            profile.update({"tcp_port": tcp_port})
             log.info("Using provided TCP port %s (saving to profile)", self.tcp_port)
         
         # Update profile with current info

@@ -623,7 +623,9 @@ class MainWindow(QMainWindow):
         
         dialog.finished.connect(lambda result: cleanup_dialog())
         
+        print(f"[DEBUG] About to call dialog.exec() for {display_name}")
         dialog.exec()
+        print(f"[DEBUG] dialog.exec() returned for {display_name}")
     
     def _on_accept_friend_request(self, dialog: QDialog, peer_id: str):
         """Handle Accept button click"""
