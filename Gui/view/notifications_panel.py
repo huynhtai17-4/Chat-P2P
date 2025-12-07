@@ -93,7 +93,7 @@ class SuggestionItem(QFrame):
             self.add_button = QPushButton("Add")
             self.add_button.setObjectName("AddButton")
             self.add_button.setFixedSize(60, 30)
-            self.add_button.clicked.connect(lambda: self.add_requested.emit(self.peer_id, self.peer_name))
+            self.add_button.clicked.connect(lambda checked: self.add_requested.emit(self.peer_id, self.peer_name))
             layout.addWidget(self.add_button)
         else:
             # Đã add rồi, có thể click để chat

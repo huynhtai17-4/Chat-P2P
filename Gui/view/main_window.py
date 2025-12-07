@@ -320,6 +320,7 @@ class MainWindow(QMainWindow):
         After sending, remove peer from suggestions immediately and track as pending.
         Once the peer accepts, they will be added to friends list automatically.
         """
+        log.info(f"Adding user requested for: {peer_name} ({peer_id})")
         if not peer_id:
             QMessageBox.warning(self, "Friend Request", "Invalid peer ID.")
             return
@@ -328,7 +329,9 @@ class MainWindow(QMainWindow):
         self.pending_friend_requests[peer_id] = peer_name
         
         # Send friend request to the peer
+        log.info(f"Sending friend request to {peer_id}...")
         success = self.chat_core.send_friend_request(peer_id)
+        log.info(f"Friend request result for {peer_id}: {success}")
         
         if success:
             # Remove peer from suggestions immediately (user has sent request)
@@ -340,7 +343,19 @@ class MainWindow(QMainWindow):
         else:
             # Remove from pending if send failed
             self.pending_friend_requests.pop(peer_id, None)
-            QMessageBox.warning(self, "Friend Request", f"Failed to send friend request to {peer_name}. Peer may be offline.")
+            
+            # Check why it failed
+            peer_info = None
+            if hasattr(self.chat_core, 'router') and hasattr(self.chat_core.router, 'temp_discovered_peers'):
+                peer_info = self.chat_core.router.temp_discovered_peers.get(peer_id)
+            
+            error_msg = f"Failed to send friend request to {peer_name}."
+            if peer_info:
+                error_msg += f"\nDetails: IP={peer_info.ip}, Port={peer_info.tcp_port}"
+                if peer_info.tcp_port == 0:
+                     error_msg += "\n(Peer not fully discovered yet, please wait)"
+            
+            QMessageBox.warning(self, "Friend Request", f"{error_msg}\nPeer may be offline or invalid.")
     
     def _on_suggestion_chat_requested(self, peer_id: str, peer_name: str):
         """
