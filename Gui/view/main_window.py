@@ -319,6 +319,10 @@ class MainWindow(QMainWindow):
         This sends a FRIEND_REQUEST to the peer (not add directly).
         After sending, remove peer from suggestions immediately and track as pending.
         """
+        if not peer_id:
+            QMessageBox.warning(self, "Friend Request", "Invalid peer ID.")
+            return
+        
         # Mark as pending request (so it won't appear in suggestions)
         self.pending_friend_requests[peer_id] = peer_name
         
@@ -327,6 +331,8 @@ class MainWindow(QMainWindow):
             # Remove peer from suggestions immediately (user has sent request)
             # MessageRouter will add to _outgoing_requests, so it won't appear in suggestions
             self._remove_peer_from_suggestions(peer_id)
+            # Force immediate refresh of suggestions to update UI
+            self._refresh_suggestions(debounced=True)
             QMessageBox.information(self, "Friend Request", f"Friend request sent to {peer_name}!")
         else:
             # Remove from pending if send failed
@@ -445,17 +451,18 @@ class MainWindow(QMainWindow):
         if not peer_id:
             return
         
-        # Remove from temp_discovered_peers in Core (if not already removed)
-        # This ensures the peer won't appear in suggestions after refresh
-        self.chat_core.remove_temp_peer(peer_id)
-        
         # Remove from NotificationsPanel directly (immediate UI update)
         if self.right_sidebar:
             self.right_sidebar.remove_suggestion(peer_id)
         
+        # Remove from temp_discovered_peers in Core (if not already removed)
+        # This ensures the peer won't appear in suggestions after refresh
+        self.chat_core.remove_temp_peer(peer_id)
+        
         # Refresh suggestions - the peer will be filtered out by _get_suggestions()
         # which checks known_peer_ids and temp_discovered_peers
-        self._refresh_suggestions(debounced=True)  # Force immediate refresh when removing peer
+        # Force immediate refresh (no debounce) when removing peer
+        self._refresh_suggestions(debounced=True)
     
     def _on_friend_request_received_signal(self, peer_id: str, display_name: str):
         """

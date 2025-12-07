@@ -210,7 +210,8 @@ class NotificationsPanel(QFrame):
         new_peer_ids = {peer.get('peer_id', '') for peer in suggestions if peer.get('peer_id')}
         
         # Only refresh if suggestions actually changed
-        if current_peer_ids == new_peer_ids and len(suggestions) == len(self.suggestions):
+        # But always refresh if count is different (item was removed/added)
+        if current_peer_ids == new_peer_ids and len(suggestions) == len(self.suggestions) and len(suggestions) > 0:
             # Same suggestions, skip refresh to prevent flickering
             return
         
@@ -279,23 +280,40 @@ class NotificationsPanel(QFrame):
         
         # Find and remove the suggestion item with matching peer_id
         item_to_remove = None
-        for i in range(self.suggestion_layout.count()):
-            item = self.suggestion_layout.itemAt(i)
-            if item and item.widget():
-                widget = item.widget()
-                # Check if this is a SuggestionItem with matching peer_id
-                if hasattr(widget, 'peer_id') and widget.peer_id == peer_id:
+        widget_to_remove = None
+        
+        # First, try to find in suggestions list
+        for widget in self.suggestions:
+            if hasattr(widget, 'peer_id') and widget.peer_id == peer_id:
+                widget_to_remove = widget
+                break
+        
+        # If found in suggestions list, find corresponding layout item
+        if widget_to_remove:
+            for i in range(self.suggestion_layout.count()):
+                item = self.suggestion_layout.itemAt(i)
+                if item and item.widget() == widget_to_remove:
                     item_to_remove = item
                     break
         
-        if item_to_remove:
-            widget = item_to_remove.widget()
-            if widget:
-                # Remove from layout
-                self.suggestion_layout.removeItem(item_to_remove)
-                # Clean up widget
-                widget.setParent(None)
-                widget.deleteLater()
-                # Remove from suggestions list
-                if widget in self.suggestions:
-                    self.suggestions.remove(widget)
+        # If not found in suggestions list, search in layout directly
+        if not item_to_remove:
+            for i in range(self.suggestion_layout.count()):
+                item = self.suggestion_layout.itemAt(i)
+                if item and item.widget():
+                    widget = item.widget()
+                    # Check if this is a SuggestionItem with matching peer_id
+                    if hasattr(widget, 'peer_id') and str(widget.peer_id) == str(peer_id):
+                        item_to_remove = item
+                        widget_to_remove = widget
+                        break
+        
+        if item_to_remove and widget_to_remove:
+            # Remove from layout
+            self.suggestion_layout.removeItem(item_to_remove)
+            # Remove from suggestions list
+            if widget_to_remove in self.suggestions:
+                self.suggestions.remove(widget_to_remove)
+            # Clean up widget
+            widget_to_remove.setParent(None)
+            widget_to_remove.deleteLater()

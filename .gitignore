@@ -1,40 +1,53 @@
-# Python cache
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
-
-# Build artifacts
+.Python
 build/
+develop-eggs/
 dist/
+downloads/
+eggs/
 .eggs/
-*.egg-info/
+lib/
+lib64/
+parts/
+sdist/
+var/
 wheels/
 pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Virtual Environments
+# Virtual Environment
 venv/
 ENV/
 env/
-.venv/
+.venv
 
-# IDE settings
+# IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Logs
+# Project specific
+downloads/
 *.log
 
-# Project - runtime data (DO NOT TRACK)
+venv/
+__pycache__/
+*.pyc
+
 data/
 
-# Downloads or temporary folders
-downloads/
