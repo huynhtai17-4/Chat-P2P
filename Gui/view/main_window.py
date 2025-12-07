@@ -121,6 +121,14 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "ChatCore Error", f"Failed to start chat core: {exc}")
             raise
 
+        # Initialize debounce timer for suggestions refresh BEFORE it's used
+        # Debounce timer for suggestions refresh (prevent too frequent updates)
+        self._suggestions_debounce_timer = QTimer(self)
+        self._suggestions_debounce_timer.setSingleShot(True)  # Only fire once
+        self._suggestions_debounce_timer.setInterval(2000)  # Wait 2 seconds before refreshing
+        self._suggestions_debounce_timer.timeout.connect(lambda: self._refresh_suggestions(debounced=True))
+        self._suggestions_pending_refresh = False
+
         self._update_peers_from_core()
         self._refresh_chat_list()
         self._refresh_suggestions()
@@ -137,13 +145,6 @@ class MainWindow(QMainWindow):
         self._cleanup_timer.setInterval(300000)  # 5 minutes
         self._cleanup_timer.timeout.connect(self._cleanup_offline_peers)
         self._cleanup_timer.start()
-        
-        # Debounce timer for suggestions refresh (prevent too frequent updates)
-        self._suggestions_debounce_timer = QTimer(self)
-        self._suggestions_debounce_timer.setSingleShot(True)  # Only fire once
-        self._suggestions_debounce_timer.setInterval(2000)  # Wait 2 seconds before refreshing
-        self._suggestions_debounce_timer.timeout.connect(lambda: self._refresh_suggestions(debounced=True))
-        self._suggestions_pending_refresh = False
     
     def _refresh_peers_and_suggestions(self):
         """Refresh both peers and suggestions lists"""
