@@ -339,7 +339,7 @@ class MainWindow(QMainWindow):
         """
         self.current_peer_id = peer_id
         self.unread_counts[peer_id] = 0
-            self._load_history_to_center(peer_id)
+        self._load_history_to_center(peer_id)
         self._refresh_chat_list()
         self._refresh_suggestions(debounced=True)  # Force immediate refresh when opening chat
 
