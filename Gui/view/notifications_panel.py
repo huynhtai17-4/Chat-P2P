@@ -63,7 +63,9 @@ class SuggestionItem(QFrame):
         self.online_indicator = QLabel()
         self.online_indicator.setObjectName("OnlineIndicator")
         self.online_indicator.setFixedSize(12, 12)
-        self.online_indicator.setVisible(True)
+        # Show indicator only if user is online
+        is_online = status_text.lower() == "online"
+        self.online_indicator.setVisible(is_online)
         avatar_layout.addWidget(self.online_indicator, 0, Qt.AlignRight | Qt.AlignBottom)
         
         # Text layout
@@ -77,9 +79,12 @@ class SuggestionItem(QFrame):
         label.setTextFormat(Qt.RichText)
         label.setStyleSheet("font-size: 13px; color: #555;")
         
-        # Status
+        # Status - change color based on online/offline
         status_label = QLabel(status_text)
-        status_label.setStyleSheet("color: #4CAF50; font-size: 11px;")
+        if is_online:
+            status_label.setStyleSheet("color: #4CAF50; font-size: 11px;")  # Green for online
+        else:
+            status_label.setStyleSheet("color: #999; font-size: 11px;")  # Gray for offline
         
         text_layout.addWidget(label)
         text_layout.addWidget(status_label)
