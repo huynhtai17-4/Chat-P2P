@@ -320,6 +320,7 @@ class MainWindow(QMainWindow):
         After sending, remove peer from suggestions immediately and track as pending.
         Once the peer accepts, they will be added to friends list automatically.
         """
+        print(f"[DEBUG] MainWindow._on_suggestion_add_requested called: {peer_name} ({peer_id})")
         log.info(f"Adding user requested for: {peer_name} ({peer_id})")
         if not peer_id:
             QMessageBox.warning(self, "Friend Request", "Invalid peer ID.")

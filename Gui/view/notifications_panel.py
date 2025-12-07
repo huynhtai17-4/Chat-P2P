@@ -93,7 +93,11 @@ class SuggestionItem(QFrame):
             self.add_button = QPushButton("Add")
             self.add_button.setObjectName("AddButton")
             self.add_button.setFixedSize(60, 30)
-            self.add_button.clicked.connect(lambda checked: self.add_requested.emit(self.peer_id, self.peer_name))
+            # Debug: print when button is clicked
+            def on_add_clicked(checked):
+                print(f"[DEBUG] Add button clicked for {self.peer_name} ({self.peer_id})")
+                self.add_requested.emit(self.peer_id, self.peer_name)
+            self.add_button.clicked.connect(on_add_clicked)
             layout.addWidget(self.add_button)
         else:
             # Đã add rồi, có thể click để chat
@@ -259,6 +263,7 @@ class NotificationsPanel(QFrame):
     
     def _on_suggestion_add_requested(self, peer_id: str, peer_name: str):
         """Handle khi click nút Add trên suggestion"""
+        print(f"[DEBUG] NotificationsPanel received add request for {peer_name} ({peer_id})")
         # Emit signal để main_window xử lý
         self.suggestion_add_requested.emit(peer_id, peer_name)
     
