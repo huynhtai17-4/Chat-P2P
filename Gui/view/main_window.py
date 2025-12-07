@@ -509,30 +509,39 @@ class MainWindow(QMainWindow):
             
             # Check if already a friend - ignore
             if peer_id in self.peers:
+                print(f"[DEBUG] Ignoring: {peer_id} already a friend")
                 log.debug("Ignoring friend request from %s: already a friend", peer_id)
                 return
             
+            print(f"[DEBUG] Not a friend, checking pending requests...")
             # Check if already have pending request for this peer - ignore duplicate
             if peer_id in self.pending_friend_requests:
+                print(f"[DEBUG] Ignoring: {peer_id} already in pending_friend_requests")
                 log.debug("Ignoring duplicate friend request from %s: already in pending_friend_requests", peer_id)
                 return
             
+            print(f"[DEBUG] Not pending, checking active dialogs...")
             # Check if dialog already active for this peer - don't create duplicate
             if peer_id in self._active_request_dialogs:
                 existing_dialog = self._active_request_dialogs.get(peer_id)
                 if existing_dialog and existing_dialog.isVisible():
+                    print(f"[DEBUG] Ignoring: dialog already visible for {peer_id}")
                     log.debug("Ignoring friend request from %s: dialog already visible", peer_id)
                     return
                 # Dialog exists but not visible - remove from tracking
+                print(f"[DEBUG] Removing stale dialog reference for {peer_id}")
                 log.debug("Removing stale dialog reference for %s", peer_id)
                 del self._active_request_dialogs[peer_id]
             
             # Store pending request
+            print(f"[DEBUG] Storing pending request and showing dialog for {display_name} ({peer_id})")
             self.pending_friend_requests[peer_id] = display_name
             log.info("Showing friend request dialog for %s (%s)", display_name, peer_id)
             
             # Show popup dialog (only once)
+            print(f"[DEBUG] Calling _show_friend_request_dialog...")
             self._show_friend_request_dialog(peer_id, display_name)
+            print(f"[DEBUG] _show_friend_request_dialog returned")
         except Exception as e:
             import traceback
             # Use the log from module level, don't redefine it
@@ -546,13 +555,16 @@ class MainWindow(QMainWindow):
         Show popup dialog for friend request (runs in main thread).
         Only creates one dialog per peer_id to prevent duplicates.
         """
+        print(f"[DEBUG] _show_friend_request_dialog called for {display_name} ({peer_id})")
         # Double-check: Don't create if already exists and visible
         if peer_id in self._active_request_dialogs:
             existing_dialog = self._active_request_dialogs[peer_id]
             if existing_dialog and existing_dialog.isVisible():
+                print(f"[DEBUG] Dialog already exists and visible for {peer_id}, skipping")
                 log.warning("Dialog already exists and visible for %s, skipping", peer_id)
                 return
         
+        print(f"[DEBUG] Creating new dialog for {display_name} ({peer_id})")
         # Track active dialog BEFORE creating (prevent race condition)
         dialog = QDialog(self)
         dialog.setWindowTitle("Friend Request")
@@ -561,6 +573,7 @@ class MainWindow(QMainWindow):
         
         # Store dialog reference immediately
         self._active_request_dialogs[peer_id] = dialog
+        print(f"[DEBUG] Dialog created and stored for {display_name} ({peer_id})")
         log.debug("Created friend request dialog for %s (%s)", display_name, peer_id)
         
         layout = QVBoxLayout(dialog)
