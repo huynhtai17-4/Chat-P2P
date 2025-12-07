@@ -58,6 +58,7 @@ class MessageRouter:
         # Track friend request states
         self._outgoing_requests: set[str] = set()  # peer_ids we sent FRIEND_REQUEST to
         self._incoming_requests: set[str] = set()  # peer_ids that sent us FRIEND_REQUEST
+        self._friend_request_emitted: set[str] = set()  # peer_ids we already emitted friend_request callback for
         
         # Track send failures for stale peer detection
         self._peer_send_failures: Dict[str, int] = {}  # peer_id -> failure count
@@ -250,6 +251,27 @@ class MessageRouter:
                         peer_info.peer_id, peer_info.tcp_port)
                 # Complete the pending accept
                 self._complete_pending_friend_accept(peer_info.peer_id)
+                return  # Don't continue - accept is being processed
+            
+            # CRITICAL: If peer has pending friend request (in _incoming_requests) but callback wasn't emitted yet,
+            # emit it now that we have valid tcp_port from discovery
+            # This handles the case where FRIEND_REQUEST arrived before discovery
+            if peer_info.peer_id in self._incoming_requests:
+                # Only emit callback once - check if already emitted
+                if peer_info.peer_id not in self._friend_request_emitted:
+                    log.info("Discovery updated peer %s with valid tcp_port %s. Emitting pending friend request callback.", 
+                            peer_info.peer_id, peer_info.tcp_port)
+                    # Mark as emitted to prevent duplicate
+                    self._friend_request_emitted.add(peer_info.peer_id)
+                    # Emit friend request callback now that we have valid peer info
+                    if self._on_friend_request_callback:
+                        try:
+                            self._on_friend_request_callback(peer_info.peer_id, peer_info.display_name)
+                        except Exception as e:
+                            log.error("Error in _on_friend_request_callback for %s: %s", peer_info.peer_id, e, exc_info=True)
+                else:
+                    log.debug("Friend request callback already emitted for %s, skipping", peer_info.peer_id)
+                return  # Don't add to suggestions - waiting for Accept/Reject
         
         # Notify GUI about temporary peer (for Suggestions list)
         # Wrap callback in try-except to prevent crash
@@ -335,12 +357,17 @@ class MessageRouter:
                          message.sender_id, sender_ip, peer_info.tcp_port)
             
             # Notify GUI about friend request (only once per peer)
-            # Wrap callback in try-except to prevent crash
-            if self._on_friend_request_callback:
-                try:
-                    self._on_friend_request_callback(message.sender_id, message.sender_name)
-                except Exception as e:
-                    log.error("Error in _on_friend_request_callback for %s: %s", message.sender_id, e, exc_info=True)
+            # Mark as emitted to prevent duplicate emissions
+            if message.sender_id not in self._friend_request_emitted:
+                self._friend_request_emitted.add(message.sender_id)
+                # Wrap callback in try-except to prevent crash
+                if self._on_friend_request_callback:
+                    try:
+                        self._on_friend_request_callback(message.sender_id, message.sender_name)
+                    except Exception as e:
+                        log.error("Error in _on_friend_request_callback for %s: %s", message.sender_id, e, exc_info=True)
+            else:
+                log.debug("Friend request callback already emitted for %s, skipping", message.sender_id)
             # Don't save friend request as regular message
             return
         
@@ -416,6 +443,8 @@ class MessageRouter:
                 # Remove from request tracking
                 self._outgoing_requests.discard(message.sender_id)
                 self._incoming_requests.discard(message.sender_id)
+                self._friend_request_emitted.discard(message.sender_id)  # Allow new requests in future
+                self._friend_request_emitted.discard(message.sender_id)  # Allow new requests in future
             
             # CRITICAL: Save to peers.json IMMEDIATELY, even if tcp_port is 0
             # This ensures the peer entry exists on both sides

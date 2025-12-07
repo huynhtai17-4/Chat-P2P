@@ -137,11 +137,18 @@ class MainWindow(QMainWindow):
         self._cleanup_timer.setInterval(300000)  # 5 minutes
         self._cleanup_timer.timeout.connect(self._cleanup_offline_peers)
         self._cleanup_timer.start()
+        
+        # Debounce timer for suggestions refresh (prevent too frequent updates)
+        self._suggestions_debounce_timer = QTimer(self)
+        self._suggestions_debounce_timer.setSingleShot(True)  # Only fire once
+        self._suggestions_debounce_timer.setInterval(2000)  # Wait 2 seconds before refreshing
+        self._suggestions_debounce_timer.timeout.connect(lambda: self._refresh_suggestions(debounced=True))
+        self._suggestions_pending_refresh = False
     
     def _refresh_peers_and_suggestions(self):
         """Refresh both peers and suggestions lists"""
         self._update_peers_from_core()
-        self._refresh_suggestions()
+        self._refresh_suggestions(debounced=True)  # Force immediate refresh for timer-based updates
 
     # ------------------------------------------------------------------ #
     # Data helpers
@@ -276,7 +283,22 @@ class MainWindow(QMainWindow):
     def _refresh_chat_list(self):
         self.left_sidebar.load_conversations(self._get_conversations())
 
-    def _refresh_suggestions(self):
+    def _refresh_suggestions(self, debounced: bool = False):
+        """
+        Refresh suggestions list.
+        If debounced=False, schedules a debounced refresh.
+        If debounced=True, actually performs the refresh.
+        """
+        if not debounced:
+            # Schedule debounced refresh
+            self._suggestions_pending_refresh = True
+            if not self._suggestions_debounce_timer.isActive():
+                self._suggestions_debounce_timer.start()
+            return
+        
+        # Actually perform refresh
+        self._suggestions_pending_refresh = False
+        log.debug("Refreshing suggestions list")
         self.right_sidebar.load_suggestions(self._get_suggestions())
 
     # ------------------------------------------------------------------ #
@@ -317,9 +339,9 @@ class MainWindow(QMainWindow):
         """
         self.current_peer_id = peer_id
         self.unread_counts[peer_id] = 0
-        self._load_history_to_center(peer_id)
+            self._load_history_to_center(peer_id)
         self._refresh_chat_list()
-        self._refresh_suggestions()
+        self._refresh_suggestions(debounced=True)  # Force immediate refresh when opening chat
 
     def _send_message_from_controller(self, message_text: str) -> bool:
         if not self.current_peer_id:
@@ -391,8 +413,8 @@ class MainWindow(QMainWindow):
         """
         try:
             # This runs in main thread - safe to update UI
-            # Refresh suggestions to show new discovered peer
-            self._refresh_suggestions()
+            # Use debounced refresh to prevent too frequent updates
+            self._refresh_suggestions(debounced=False)
         except Exception as e:
             import traceback
             print(f"Error in _on_temp_peer_updated_signal: {e}")
@@ -432,7 +454,7 @@ class MainWindow(QMainWindow):
         
         # Refresh suggestions - the peer will be filtered out by _get_suggestions()
         # which checks known_peer_ids and temp_discovered_peers
-        self._refresh_suggestions()
+        self._refresh_suggestions(debounced=True)  # Force immediate refresh when removing peer
     
     def _on_friend_request_received_signal(self, peer_id: str, display_name: str):
         """
@@ -443,6 +465,7 @@ class MainWindow(QMainWindow):
         """
         try:
             # This runs in main thread - safe to show dialog
+            log.info("Friend request signal received for %s (%s)", display_name, peer_id)
             
             # Check if already a friend - ignore
             if peer_id in self.peers:
@@ -456,11 +479,17 @@ class MainWindow(QMainWindow):
             
             # Check if dialog already active for this peer - don't create duplicate
             if peer_id in self._active_request_dialogs:
-                log.debug("Ignoring friend request from %s: dialog already active", peer_id)
-                return
+                existing_dialog = self._active_request_dialogs.get(peer_id)
+                if existing_dialog and existing_dialog.isVisible():
+                    log.debug("Ignoring friend request from %s: dialog already visible", peer_id)
+                    return
+                # Dialog exists but not visible - remove from tracking
+                log.debug("Removing stale dialog reference for %s", peer_id)
+                del self._active_request_dialogs[peer_id]
             
             # Store pending request
             self.pending_friend_requests[peer_id] = display_name
+            log.info("Showing friend request dialog for %s (%s)", display_name, peer_id)
             
             # Show popup dialog (only once)
             self._show_friend_request_dialog(peer_id, display_name)
@@ -476,16 +505,22 @@ class MainWindow(QMainWindow):
         Show popup dialog for friend request (runs in main thread).
         Only creates one dialog per peer_id to prevent duplicates.
         """
-        # Track active dialog
-        self._active_request_dialogs[peer_id] = None  # Will be set below
+        # Double-check: Don't create if already exists and visible
+        if peer_id in self._active_request_dialogs:
+            existing_dialog = self._active_request_dialogs[peer_id]
+            if existing_dialog and existing_dialog.isVisible():
+                log.warning("Dialog already exists and visible for %s, skipping", peer_id)
+                return
         
+        # Track active dialog BEFORE creating (prevent race condition)
         dialog = QDialog(self)
         dialog.setWindowTitle("Friend Request")
         dialog.setModal(True)
         dialog.setFixedSize(400, 200)
         
-        # Store dialog reference
+        # Store dialog reference immediately
         self._active_request_dialogs[peer_id] = dialog
+        log.debug("Created friend request dialog for %s (%s)", display_name, peer_id)
         
         layout = QVBoxLayout(dialog)
         layout.setSpacing(15)

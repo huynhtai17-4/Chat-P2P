@@ -205,6 +205,16 @@ class NotificationsPanel(QFrame):
     
     def load_suggestions(self, suggestions: list):
         """Hiển thị danh sách gợi ý chat."""
+        # Check if suggestions actually changed to avoid unnecessary refresh
+        current_peer_ids = {getattr(w, 'peer_id', None) for w in self.suggestions if hasattr(w, 'peer_id')}
+        new_peer_ids = {peer.get('peer_id', '') for peer in suggestions if peer.get('peer_id')}
+        
+        # Only refresh if suggestions actually changed
+        if current_peer_ids == new_peer_ids and len(suggestions) == len(self.suggestions):
+            # Same suggestions, skip refresh to prevent flickering
+            return
+        
+        # Clear existing suggestions
         while self.suggestion_layout.count() > 0:
             item = self.suggestion_layout.takeAt(0)
             if item:
