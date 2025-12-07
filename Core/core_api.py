@@ -88,8 +88,10 @@ class ChatCore:
         self.router.stop()
         self._running = False
 
-    def send_message(self, peer_id: str, content: str, msg_type: str = "text") -> bool:
-        success, message = self.router.send_message(peer_id, content, msg_type=msg_type)
+    def send_message(self, peer_id: str, content: str, msg_type: str = "text", 
+                     file_name: str = None, file_data: str = None, audio_data: str = None) -> bool:
+        success, message = self.router.send_message(peer_id, content, msg_type=msg_type, 
+                                                     file_name=file_name, file_data=file_data, audio_data=audio_data)
         if success and message:
             self._emit_message(message)
         return success
@@ -204,4 +206,7 @@ class ChatCore:
             "time_str": _format_time(message.timestamp),
             "date_str": _format_date(message.timestamp),
             "is_sender": message.sender_id == self.peer_id,
+            "file_name": getattr(message, 'file_name', None),
+            "file_data": getattr(message, 'file_data', None),
+            "audio_data": getattr(message, 'audio_data', None),
         }

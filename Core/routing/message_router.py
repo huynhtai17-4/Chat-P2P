@@ -265,7 +265,8 @@ class MessageRouter:
         if self._on_message_callback:
             self._on_message_callback(message)
 
-    def send_message(self, to_peer_id: str, content: str, msg_type: str = "text") -> Tuple[bool, Optional[Message]]:
+    def send_message(self, to_peer_id: str, content: str, msg_type: str = "text",
+                     file_name: str = None, file_data: str = None, audio_data: str = None) -> Tuple[bool, Optional[Message]]:
         
         if not self.data_manager:
             log.error("Router not initialized. Cannot send message.")
@@ -331,6 +332,9 @@ class MessageRouter:
             receiver_id=to_peer_id,
             content=content,
             msg_type=msg_type,
+            file_name=file_name,
+            file_data=file_data,
+            audio_data=audio_data,
         )
 
         log.info("Sending message to %s (%s) at %s:%s", target.display_name, to_peer_id, target.ip, target.tcp_port)

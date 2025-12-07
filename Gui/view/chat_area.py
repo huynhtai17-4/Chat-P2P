@@ -154,6 +154,7 @@ class ChatArea(QFrame):
         self.controller.set_message_input(self.message_input)
         self.controller.set_attach_button(self.clip_icon)
         self.controller.set_emoji_button(self.emoji_icon)
+        self.controller.set_mic_button(self.mic_icon)
         self.controller.set_send_button(self.send_button)
 
     def add_message(self, text, is_sender, add_to_top=False, time_str=None):
@@ -245,8 +246,10 @@ class ChatArea(QFrame):
         return self.controller
 
     def connect_file_attached(self, callback):
-        
         self.controller.file_attached.connect(callback)
+    
+    def connect_audio_recorded(self, callback):
+        self.controller.audio_recorded.connect(callback)
 
     def connect_emoji_selected(self, callback):
         

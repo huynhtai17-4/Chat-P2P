@@ -16,6 +16,9 @@ class Message:
     content: str
     timestamp: float
     msg_type: str = "text"
+    file_name: str = None
+    file_data: str = None
+    audio_data: str = None
 
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -32,7 +35,9 @@ class Message:
         return cls.from_dict(json.loads(payload))
 
     @classmethod
-    def create(cls, sender_id: str, sender_name: str, receiver_id: str, content: str, msg_type: str = "text") -> "Message":
+    def create(cls, sender_id: str, sender_name: str, receiver_id: str, content: str, 
+               msg_type: str = "text", file_name: str = None, file_data: str = None, 
+               audio_data: str = None) -> "Message":
         return cls(
             message_id=str(uuid.uuid4()),
             sender_id=sender_id,
@@ -41,6 +46,9 @@ class Message:
             content=content,
             timestamp=time.time(),
             msg_type=msg_type,
+            file_name=file_name,
+            file_data=file_data,
+            audio_data=audio_data,
         )
     
     @classmethod
