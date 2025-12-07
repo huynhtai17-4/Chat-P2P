@@ -12,8 +12,7 @@ from Gui.view.main_window import MainWindow
 from app.user_manager import UserManager
 
 class ChatApplication:
-    """Main application controller"""
-    
+
     def __init__(self):
         self.app = QApplication(sys.argv)
         
@@ -32,14 +31,14 @@ class ChatApplication:
         self.navigate_to_register = False
     
     def run(self):
-        """Run the application"""
+        
         # Show login window first
         self.show_login()
         
         return self.app.exec()
     
     def show_login(self):
-        """Show login window"""
+        
         self.login_window = LoginWindow(self.user_manager)
         
         # Connect signals
@@ -60,7 +59,7 @@ class ChatApplication:
             sys.exit(0)
     
     def show_register(self):
-        """Show register window"""
+        
         self.register_window = RegisterWindow(self.user_manager)
         
         # Connect signals
@@ -75,13 +74,13 @@ class ChatApplication:
             self.show_login()
     
     def _handle_register_requested(self):
-        """Handle register request from login window without duplicating logins"""
+        
         self.navigate_to_register = True
         if self.login_window:
             self.login_window.reject()
     
     def on_login_success(self, user):
-        """Handle successful login"""
+        
         self.current_user = user
         print(f"[App] User logged in: {user.display_name}")
         
@@ -93,7 +92,7 @@ class ChatApplication:
         self.show_main_window()
     
     def on_register_success(self, username, display_name):
-        """Handle successful registration"""
+        
         print(f"[App] User registered: {display_name}")
         
         # Close register window
@@ -112,7 +111,7 @@ class ChatApplication:
             sys.exit(0)
     
     def show_main_window(self):
-        """Show main chat window"""
+        
         if not self.current_user:
             return
         
@@ -155,7 +154,7 @@ class ChatApplication:
         self.main_window.show()
 
     def _allocate_tcp_port(self, base: int = 55000, max_ports: int = 200) -> int:
-        """Find a free TCP port for this peer."""
+        
         for offset in range(max_ports):
             port = base + offset
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -167,7 +166,7 @@ class ChatApplication:
         return 0  # Let OS choose if all busy
 
 def main():
-    """Main entry point"""
+    
     app = ChatApplication()
     sys.exit(app.run())
 

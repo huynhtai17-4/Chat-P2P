@@ -6,12 +6,8 @@ import uuid
 from dataclasses import dataclass, asdict
 from typing import Dict
 
-
 @dataclass
 class Message:
-    """
-    Message payload used between peers. Serialized in JSON (single line).
-    """
 
     message_id: str
     sender_id: str
@@ -49,7 +45,7 @@ class Message:
     
     @classmethod
     def create_friend_request(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
-        """Create a FRIEND_REQUEST message."""
+        
         return cls.create(
             sender_id=sender_id,
             sender_name=sender_name,
@@ -60,7 +56,7 @@ class Message:
     
     @classmethod
     def create_friend_accept(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
-        """Create a FRIEND_ACCEPT message."""
+        
         return cls.create(
             sender_id=sender_id,
             sender_name=sender_name,
@@ -71,7 +67,7 @@ class Message:
     
     @classmethod
     def create_friend_reject(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
-        """Create a FRIEND_REJECT message."""
+        
         return cls.create(
             sender_id=sender_id,
             sender_name=sender_name,
@@ -83,8 +79,7 @@ class Message:
     @classmethod
     def create_friend_sync(cls, sender_id: str, sender_name: str, receiver_id: str, 
                           peer_ip: str, peer_tcp_port: int) -> "Message":
-        """Create a FRIEND_SYNC message to ensure mutual friendship."""
-        # Store peer info in content as JSON
+        
         import json
         sync_data = {
             "peer_id": sender_id,
@@ -99,4 +94,25 @@ class Message:
             content=json.dumps(sync_data),
             msg_type="FRIEND_SYNC",
         )
-
+    
+    @classmethod
+    def create_online_status(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
+        
+        return cls.create(
+            sender_id=sender_id,
+            sender_name=sender_name,
+            receiver_id=receiver_id,
+            content="ONLINE",
+            msg_type="ONLINE",
+        )
+    
+    @classmethod
+    def create_offline_status(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
+        
+        return cls.create(
+            sender_id=sender_id,
+            sender_name=sender_name,
+            receiver_id=receiver_id,
+            content="OFFLINE",
+            msg_type="OFFLINE",
+        )

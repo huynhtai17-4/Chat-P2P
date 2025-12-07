@@ -1,8 +1,3 @@
-"""
-UDP broadcast based peer discovery.
-Each peer periodically announces itself and listens for others.
-"""
-
 from __future__ import annotations
 
 import json
@@ -24,12 +19,7 @@ from Core.utils.network_mode import (
 
 log = logging.getLogger(__name__)
 
-
 class PeerDiscovery:
-    """
-    Handles UDP broadcast announcements and discovery updates.
-    Runs two background threads: broadcaster + listener.
-    """
 
     def __init__(
         self,
@@ -49,7 +39,6 @@ class PeerDiscovery:
         self._broadcast_thread: Optional[threading.Thread] = None
         self._listen_thread: Optional[threading.Thread] = None
         
-        # Detect network mode once at initialization
         self._network_mode = detect_network_mode()
         self._local_ip = get_local_ip(self._network_mode)
         self._broadcast_addr = get_broadcast_address(self._network_mode)
@@ -70,11 +59,7 @@ class PeerDiscovery:
     def stop(self):
         self._stop_event.set()
 
-    # ------------------------------------------------------------------ #
-    # Internal helpers
-    # ------------------------------------------------------------------ #
     def _broadcast_loop(self):
-        # CRITICAL: Broadcast payload MUST include tcp_port
         payload = {
             "type": config.DISCOVERY_PACKET_TYPE,
             "peer_id": self.peer_id,
@@ -86,7 +71,6 @@ class PeerDiscovery:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                     sock.settimeout(0.2)
-                    # Use network-mode-aware broadcast address
                     sock.sendto(json.dumps(payload).encode("utf-8"), (self._broadcast_addr, config.UDP_DISCOVERY_PORT))
             except OSError as exc:
                 log.debug("Discovery broadcast failed: %s", exc)
@@ -121,8 +105,6 @@ class PeerDiscovery:
                 if packet.get("peer_id") == self.peer_id:
                     continue  # ignore self
 
-                # CRITICAL: Extract tcp_port from discovery packet
-                # This is the authoritative source for listener port
                 tcp_port = packet.get("tcp_port")
                 if not tcp_port or not isinstance(tcp_port, (int, str)):
                     log.warning("Discovery packet missing tcp_port from %s, skipping", packet.get("peer_id"))
@@ -134,19 +116,15 @@ class PeerDiscovery:
                     log.warning("Invalid tcp_port in discovery packet from %s: %s", packet.get("peer_id"), tcp_port)
                     continue
                 
-                # Validate port range
                 if tcp_port < 55000 or tcp_port > 55199:
                     log.warning("Discovery packet has invalid tcp_port %s from %s (must be 55000-55199), skipping",
                                tcp_port, packet.get("peer_id"))
                     continue
                 
-                # Use IP from packet if available, otherwise use sender IP
-                # In single-machine mode, always use 127.0.0.1
                 if self._network_mode == NETWORK_MODE_SINGLE:
                     peer_ip = "127.0.0.1"
                 else:
                     peer_ip = packet.get("ip") or ip or self._local_ip
-                    # Filter out virtual adapters
                     if peer_ip.startswith("192.168.234.") or peer_ip.startswith("192.168.56."):
                         log.debug("Ignoring discovery from virtual adapter IP: %s", peer_ip)
                         continue
@@ -160,15 +138,8 @@ class PeerDiscovery:
                     status="online",
                 )
                 
-                # IMPORTANT: Always notify router about discovered peer
-                # Router will handle whether peer is friend or not
-                # This ensures router can update tcp_port for friends and process pending accepts
-                # Wrap callback in try-except to prevent crash
                 if self.on_peer_found:
                     try:
                         self.on_peer_found(peer_info)
                     except Exception as e:
                         log.error("Error in on_peer_found callback for %s: %s", peer_info.peer_id, e, exc_info=True)
-                        # Continue discovery even if callback fails
-
-

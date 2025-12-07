@@ -4,12 +4,8 @@ import time
 from dataclasses import dataclass, asdict
 from typing import Dict, Optional
 
-
 @dataclass
 class PeerInfo:
-    """
-    Light-weight peer descriptor stored in peers.json and cached in memory.
-    """
 
     peer_id: str
     display_name: str
@@ -30,4 +26,3 @@ class PeerInfo:
     @classmethod
     def from_dict(cls, data: Dict) -> "PeerInfo":
         return cls(**data)
-

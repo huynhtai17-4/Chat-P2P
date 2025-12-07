@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-Quick test script for Login/Register windows
-"""
+
 import sys
 from PySide6.QtWidgets import QApplication
 from Gui.view.auth_stylesheet import AUTH_STYLESHEET
@@ -10,7 +8,7 @@ from Gui.view.register_window import RegisterWindow
 from app.user_manager import UserManager
 
 def test_login():
-    """Test login window"""
+    
     app = QApplication(sys.argv)
     app.setStyleSheet(AUTH_STYLESHEET)
     
@@ -31,7 +29,7 @@ def test_login():
     return 0
 
 def test_register():
-    """Test register window"""
+    
     app = QApplication(sys.argv)
     app.setStyleSheet(AUTH_STYLESHEET)
     
@@ -64,4 +62,3 @@ if __name__ == "__main__":
         sys.exit(test_login())
     else:
         sys.exit(test_register())
-

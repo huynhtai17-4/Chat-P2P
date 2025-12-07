@@ -1,4 +1,3 @@
-# register_window.py - Modern registration window with avatar
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QFileDialog, QMessageBox, QCheckBox, QWidget
@@ -10,8 +9,7 @@ from ..utils.avatar import load_circular_pixmap
 import os
 
 class RegisterWindow(QDialog):
-    """Modern registration window with avatar upload"""
-    
+
     registration_successful = Signal(str, str)
     
     def __init__(self, user_manager: UserManager, parent=None):
@@ -27,13 +25,11 @@ class RegisterWindow(QDialog):
         self._setup_ui()
     
     def _setup_ui(self):
-        """Setup the user interface"""
-        # Main layout
+        
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(40, 40, 40, 40)
         main_layout.setAlignment(Qt.AlignCenter)
         
-        # White card container
         card = QWidget()
         card.setObjectName("LoginCard")
         card.setFixedSize(440, 670)
@@ -42,14 +38,12 @@ class RegisterWindow(QDialog):
         card_layout.setContentsMargins(50, 35, 50, 35)
         card_layout.setSpacing(0)
         
-        # Title
         title = QLabel("Registration")
         title.setObjectName("CardTitle")
         title.setAlignment(Qt.AlignLeft)
         card_layout.addWidget(title)
         card_layout.addSpacing(25)
         
-        # Avatar section - centered
         avatar_container = QHBoxLayout()
         avatar_container.setAlignment(Qt.AlignCenter)
         
@@ -75,7 +69,6 @@ class RegisterWindow(QDialog):
         card_layout.addLayout(avatar_container)
         card_layout.addSpacing(25)
         
-        # Display name field (Enter your name)
         displayname_container = QHBoxLayout()
         displayname_container.setSpacing(15)
         
@@ -93,7 +86,6 @@ class RegisterWindow(QDialog):
         card_layout.addLayout(displayname_container)
         card_layout.addSpacing(20)
         
-        # Username field (Enter your email)
         username_container = QHBoxLayout()
         username_container.setSpacing(15)
         
@@ -111,7 +103,6 @@ class RegisterWindow(QDialog):
         card_layout.addLayout(username_container)
         card_layout.addSpacing(20)
         
-        # Password field
         password_container = QHBoxLayout()
         password_container.setSpacing(15)
         
@@ -137,7 +128,6 @@ class RegisterWindow(QDialog):
         card_layout.addLayout(password_container)
         card_layout.addSpacing(20)
         
-        # Confirm password field
         confirm_container = QHBoxLayout()
         confirm_container.setSpacing(15)
         
@@ -163,9 +153,7 @@ class RegisterWindow(QDialog):
         
         card_layout.addLayout(confirm_container)
         card_layout.addSpacing(25)
-        
-        
-        # Register button
+
         self.register_btn = QPushButton("Register")
         self.register_btn.setObjectName("ModernPrimaryButton")
         self.register_btn.setFixedHeight(50)
@@ -174,7 +162,6 @@ class RegisterWindow(QDialog):
         
         card_layout.addSpacing(20)
         
-        # Login link
         login_layout = QHBoxLayout()
         login_layout.setAlignment(Qt.AlignCenter)
         
@@ -191,12 +178,11 @@ class RegisterWindow(QDialog):
         self.display_name_input.setFocus()
     
     def _set_default_avatar(self):
-        """Set default avatar"""
+        
         default_path = "Gui/assets/images/avatar.jpg"
         if os.path.exists(default_path):
             pixmap = load_circular_pixmap(default_path, size=100, border_width=0)
         else:
-            # Create circular placeholder
             from PySide6.QtGui import QPainter, QPainterPath
             pixmap = QPixmap(100, 100)
             pixmap.fill(Qt.GlobalColor.transparent)
@@ -211,7 +197,7 @@ class RegisterWindow(QDialog):
         self.avatar_label.setScaledContents(True)
     
     def _choose_avatar(self):
-        """Choose avatar file"""
+        
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Choose Avatar Image",
@@ -229,10 +215,8 @@ class RegisterWindow(QDialog):
                 QMessageBox.warning(self, "Error", f"Failed to load avatar: {str(e)}")
     
     def _register(self):
-        """Handle registration"""
-        # username = từ ô "Enter your email"
+        
         username = self.username_input.text().strip()
-        # display_name = từ ô "Enter your name"
         display_name = self.display_name_input.text().strip()
         password = self.password_input.text()
         confirm_password = self.confirm_password_input.text()
@@ -277,11 +261,11 @@ class RegisterWindow(QDialog):
             QMessageBox.warning(self, "Registration Failed", message)
     
     def _go_to_login(self):
-        """Switch to login"""
+        
         self.reject()
     
     def _toggle_password_visibility(self, field):
-        """Toggle password visibility"""
+        
         if field == 1:
             if self.password_input.echoMode() == QLineEdit.EchoMode.Password:
                 self.password_input.setEchoMode(QLineEdit.EchoMode.Normal)

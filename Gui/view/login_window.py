@@ -1,4 +1,3 @@
-# login_window.py - Modern login window
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QMessageBox, QCheckBox, QWidget
@@ -8,8 +7,7 @@ from PySide6.QtGui import QFont, QIcon, QPixmap
 from app.user_manager import UserManager, User
 
 class LoginWindow(QDialog):
-    """Modern login window"""
-    
+
     login_successful = Signal(User)
     register_requested = Signal()
     
@@ -25,13 +23,11 @@ class LoginWindow(QDialog):
         self._setup_ui()
     
     def _setup_ui(self):
-        """Setup the user interface"""
-        # Main layout
+        
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(40, 60, 40, 60)
         main_layout.setAlignment(Qt.AlignCenter)
         
-        # White card container
         card = QWidget()
         card.setObjectName("LoginCard")
         card.setFixedSize(440, 460)
@@ -40,14 +36,12 @@ class LoginWindow(QDialog):
         card_layout.setContentsMargins(50, 40, 50, 40)
         card_layout.setSpacing(0)
         
-        # Title
         title = QLabel("Login")
         title.setObjectName("CardTitle")
         title.setAlignment(Qt.AlignLeft)
         card_layout.addWidget(title)
         card_layout.addSpacing(40)
         
-        # Email/Username field with icon
         email_container = QHBoxLayout()
         email_container.setSpacing(15)
         
@@ -65,7 +59,6 @@ class LoginWindow(QDialog):
         card_layout.addLayout(email_container)
         card_layout.addSpacing(30)
         
-        # Password field with icon
         password_container = QHBoxLayout()
         password_container.setSpacing(15)
         
@@ -92,10 +85,8 @@ class LoginWindow(QDialog):
         card_layout.addLayout(password_container)
         card_layout.addSpacing(25)
         
-        # Remember me & Forgot password
         options_layout = QHBoxLayout()
-        
-        
+
         options_layout.addStretch()
         
         forgot_link = QPushButton("Forgot password?")
@@ -106,7 +97,6 @@ class LoginWindow(QDialog):
         card_layout.addLayout(options_layout)
         card_layout.addSpacing(30)
         
-        # Login button
         self.login_btn = QPushButton("Login")
         self.login_btn.setObjectName("ModernPrimaryButton")
         self.login_btn.setFixedHeight(50)
@@ -115,7 +105,6 @@ class LoginWindow(QDialog):
         
         card_layout.addSpacing(25)
         
-        # Signup link
         signup_layout = QHBoxLayout()
         signup_layout.setAlignment(Qt.AlignCenter)
         
@@ -132,7 +121,7 @@ class LoginWindow(QDialog):
         self.username_input.setFocus()
     
     def _login(self):
-        """Handle login"""
+        
         username = self.username_input.text().strip()
         password = self.password_input.text()
         
@@ -158,17 +147,17 @@ class LoginWindow(QDialog):
             self.password_input.setFocus()
     
     def _go_to_register(self):
-        """Switch to register window"""
+        
         self.register_requested.emit()
         self.close()
     
     def set_username(self, username: str):
-        """Pre-fill username"""
+        
         self.username_input.setText(username)
         self.password_input.setFocus()
     
     def _toggle_password_visibility(self):
-        """Toggle password visibility"""
+        
         if self.password_input.echoMode() == QLineEdit.EchoMode.Password:
             self.password_input.setEchoMode(QLineEdit.EchoMode.Normal)
             self.eye_icon.setPixmap(QPixmap("Gui/assets/icons/eye_on.svg").scaled(22, 22, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))

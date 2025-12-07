@@ -1,4 +1,3 @@
-# chat_area_controller.py
 import os
 from typing import Callable
 
@@ -15,9 +14,7 @@ from PySide6.QtWidgets import (
     QTabWidget
 )
 
-
 class ChatAreaController(QObject):
-    """Controller quản lý phần nhập liệu ở khu vực chat."""
 
     file_attached = Signal(str, str)  # file_path, file_name
     emoji_selected = Signal(str)      # emoji_character
@@ -32,9 +29,6 @@ class ChatAreaController(QObject):
         self.send_button = None
         self._send_handler = None
 
-    # ------------------------------------------------------------------ #
-    # Widget bindings
-    # ------------------------------------------------------------------ #
     def set_message_input(self, message_input):
         self.message_input = message_input
         if self.message_input:
@@ -56,12 +50,9 @@ class ChatAreaController(QObject):
             self.send_button.clicked.connect(self._send_message)
 
     def set_send_handler(self, handler: Callable[[str], bool]):
-        """Đăng ký hàm gửi tin nhắn (thường là chat_core.send_message)."""
+        
         self._send_handler = handler
 
-    # ------------------------------------------------------------------ #
-    # File attachment & emoji picker
-    # ------------------------------------------------------------------ #
     def _show_file_dialog(self):
         if not self.message_input:
             return
@@ -79,7 +70,6 @@ class ChatAreaController(QObject):
                 file_name = os.path.basename(file_path)
                 self.file_attached.emit(file_path, file_name)
 
-                # Insert short note into input field
                 current_text = self.message_input.text()
                 clip = f"📎{file_name}"
                 self.message_input.setText(f"{current_text} {clip}".strip())
@@ -140,24 +130,7 @@ class ChatAreaController(QObject):
             for emoji in emojis:
                 emoji_btn = QPushButton(emoji)
                 emoji_btn.setFixedSize(45, 45)
-                emoji_btn.setStyleSheet("""
-                    QPushButton {
-                        font-size: 22px;
-                        border: 2px solid #e0e0e0;
-                        background: white;
-                        border-radius: 8px;
-                        padding: 0px;
-                    }
-                    QPushButton:hover {
-                        background-color: #f0f8ff;
-                        border: 2px solid #4dabf7;
-                        transform: scale(1.1);
-                    }
-                    QPushButton:pressed {
-                        background-color: #e3f2fd;
-                        border: 2px solid #2196f3;
-                    }
-                """)
+                emoji_btn.setStyleSheet()
                 emoji_btn.clicked.connect(
                     lambda checked=False, e=emoji, dlg=emoji_dialog: self._on_emoji_selected(e, dlg)
                 )
@@ -200,9 +173,6 @@ class ChatAreaController(QObject):
             self.message_input.setFocus()
         self.emoji_selected.emit(emoji)
 
-    # ------------------------------------------------------------------ #
-    # Messaging
-    # ------------------------------------------------------------------ #
     def _send_message(self):
         if not self.message_input:
             return
@@ -220,7 +190,6 @@ class ChatAreaController(QObject):
         self.message_sent.emit(message_text)
         self.message_input.clear()
 
-    # Utility helpers --------------------------------------------------- #
     def clear_message_input(self):
         if self.message_input:
             self.message_input.clear()

@@ -1,6 +1,3 @@
-"""
-Quick test to verify button signal works
-"""
 import sys
 from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton
 from PySide6.QtCore import Signal
@@ -26,4 +23,3 @@ if __name__ == "__main__":
     widget = TestWidget()
     widget.show()
     sys.exit(app.exec())
-

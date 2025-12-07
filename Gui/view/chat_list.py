@@ -1,4 +1,3 @@
-# chat_list.py (cập nhật)
 from PySide6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QLineEdit, QListWidget, QListWidgetItem
@@ -11,7 +10,6 @@ from PySide6.QtWidgets import QLineEdit
 from ..utils.avatar import load_circular_pixmap
 import os
 
-# Import component con
 from .chat_item import ChatItemWidget 
 from Gui.controller.chat_list_controller import ChatListController
 
@@ -30,7 +28,6 @@ class ChatList(QFrame):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(8)
 
-        # Header: Avatar + Tên người dùng
         header_layout = QHBoxLayout()
         header_layout.setSpacing(5)
         header_layout.setContentsMargins(10, 10, 10, 10)
@@ -39,7 +36,6 @@ class ChatList(QFrame):
         user_avatar.setObjectName("HeaderUserAvatar")
         user_avatar.setFixedSize(60, 60)
         
-        # Use user's avatar if provided, otherwise use default
         if avatar_path and os.path.exists(avatar_path):
             avatar_pixmap = load_circular_pixmap(avatar_path, size=60, border_width=2, border_color="#dddddd")
         else:
@@ -57,14 +53,12 @@ class ChatList(QFrame):
 
         layout.addLayout(header_layout)
 
-        # Đường kẻ ngang
         divider = QFrame()
         divider.setFrameShape(QFrame.HLine)
         divider.setFrameShadow(QFrame.Sunken)
         divider.setObjectName("HeaderDivider")
         layout.addWidget(divider)
 
-        # Tiêu đề "Chats" và nút +
         title_layout = QHBoxLayout()
         title_label = QLabel("Chats")
         title_label.setObjectName("ChatsHeader") 
@@ -81,7 +75,6 @@ class ChatList(QFrame):
         
         layout.addLayout(title_layout)
 
-        # Các Tab (DIRECT, GROUPS, PUBLIC)
         tab_layout = QHBoxLayout()
         
         self.tab_direct = QLabel("DIRECT")
@@ -103,7 +96,6 @@ class ChatList(QFrame):
         
         layout.addLayout(tab_layout)
 
-        # Thanh tìm kiếm
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search")
         self.search_input.setObjectName("SearchBar")
@@ -113,7 +105,6 @@ class ChatList(QFrame):
 
         layout.addWidget(self.search_input)
 
-        # Danh sách Chat
         self.chat_list_widget = QListWidget()
         self.chat_list_widget.setObjectName("ChatList")
         self.chat_list_widget.setSpacing(5)
@@ -122,16 +113,12 @@ class ChatList(QFrame):
         layout.addWidget(self.chat_list_widget, 1)
         self.setLayout(layout)
 
-        # Khởi tạo controller
         self.controller = ChatListController(self.chat_list_widget)
         self.controller.set_search_input(self.search_input)
         self.controller.set_tab_labels(self.tab_direct, self.tab_groups, self.tab_public)
 
-        # Không populate dữ liệu mẫu nữa, danh sách sẽ được cập nhật từ dữ liệu ứng dụng
-        # self.populate_chat_list()
-
     def add_chat(self, name, last_message, time_str, unread_count=0, selected=False, is_online=False, peer_id=None):
-        """Hàm trợ giúp để thêm ChatItemWidget vào QListWidget"""
+        
         chat_item_widget = ChatItemWidget(name, last_message, time_str, unread_count, selected)
         chat_item_widget.set_online_status(is_online)
         if peer_id:
@@ -142,12 +129,11 @@ class ChatList(QFrame):
         self.chat_list_widget.setItemWidget(list_item, chat_item_widget)
 
     def populate_chat_list(self):
-        """Thêm dữ liệu mẫu (deprecated - dùng load_conversations_from_core)"""
+        
         pass
     
     def load_conversations(self, conversations: list):
-        """Load a list of conversation dictionaries and display them."""
-        # Clear selection trước khi clear list để tránh RuntimeError
+        
         self.controller.clear_selection()
         self.chat_list_widget.clear()
         self.controller.all_chat_items = []
@@ -177,18 +163,17 @@ class ChatList(QFrame):
 
         self.controller._cache_all_chat_items()
 
-    # Các method để tương tác với controller từ bên ngoài
     def get_controller(self):
         return self.controller
 
     def connect_chat_selected(self, callback):
-        """Kết nối signal chat selected với callback"""
+        
         self.controller.chat_selected.connect(callback)
 
     def connect_tab_changed(self, callback):
-        """Kết nối signal tab changed với callback"""
+        
         self.controller.tab_changed.connect(callback)
 
     def connect_search_performed(self, callback):
-        """Kết nối signal search performed với callback"""
+        
         self.controller.search_performed.connect(callback)

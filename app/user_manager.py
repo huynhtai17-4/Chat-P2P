@@ -6,31 +6,19 @@ import hashlib
 from dataclasses import dataclass, asdict
 from typing import Dict, Optional, Tuple
 
-
 DATA_DIR = "data"
 
-
 def _hash_password(password: str) -> str:
-    """Return a SHA256 hash for a password."""
+    
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
-
 def _normalize_username(username: str) -> str:
-    """
-    Normalize username to a safe folder name.
-    - Convert to lowercase
-    - Remove special characters that are not safe for folder names
-    - Keep only alphanumeric, dots, underscores, hyphens
-    """
-    # Convert to lowercase
+    
     normalized = username.lower().strip()
-    # Replace @ with underscore (email -> folder name)
     normalized = normalized.replace("@", "_at_")
-    # Remove any remaining unsafe characters
     import re
     normalized = re.sub(r'[^a-z0-9._-]', '_', normalized)
     return normalized
-
 
 @dataclass
 class User:
@@ -41,12 +29,12 @@ class User:
     user_id: Optional[str] = None
 
     def get_folder_name(self) -> str:
-        """Get normalized folder name for this user."""
+        
         return _normalize_username(self.username)
     
     @property
     def folder(self) -> str:
-        """Get full folder path."""
+        
         return os.path.join(DATA_DIR, self.get_folder_name())
 
     def to_dict(self) -> Dict:
@@ -55,8 +43,6 @@ class User:
 
     @classmethod
     def from_dict(cls, data: Dict) -> "User":
-        # Filter only fields that belong to User class
-        # Core may add peer_id, tcp_port, etc. which we ignore
         user_fields = {
             'username': data.get('username', ''),
             'password_hash': data.get('password_hash', ''),
@@ -66,9 +52,7 @@ class User:
         }
         return cls(**user_fields)
 
-
 class UserManager:
-    """Minimal user manager stored inside the data/ folder (no Core dependency)."""
 
     email_pattern = re.compile(r"^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 
@@ -76,11 +60,8 @@ class UserManager:
         self.users: Dict[str, User] = {}
         self._load_users()
 
-    # ------------------------------------------------------------------ #
-    # Loading & persistence
-    # ------------------------------------------------------------------ #
     def _load_users(self):
-        """Load existing users from data/<username>/profile.json."""
+        
         if not os.path.isdir(DATA_DIR):
             os.makedirs(DATA_DIR, exist_ok=True)
             return
@@ -96,23 +77,14 @@ class UserManager:
                 with open(profile_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
                 user = User.from_dict(data)
-                # Use username from profile.json, not folder name
-                # This ensures consistency even if folder was renamed
                 if user.username:
-                    # Normalize username for lookup key
                     lookup_key = user.username.lower()
                     self.users[lookup_key] = user
             except Exception as e:
                 print(f"[UserManager] Failed to load {profile_path}: {e}")
 
     def _save_user(self, user: User, folder_name: Optional[str] = None):
-        """
-        Save user profile to data/<folder_name>/profile.json.
         
-        Args:
-            user: User object to save
-            folder_name: Optional folder name. If None, uses normalized username.
-        """
         if folder_name is None:
             folder_name = user.get_folder_name()
         folder = os.path.join(DATA_DIR, folder_name)
@@ -121,9 +93,6 @@ class UserManager:
         with open(profile_path, "w", encoding="utf-8") as f:
             json.dump(user.to_dict(), f, ensure_ascii=False, indent=2)
 
-    # ------------------------------------------------------------------ #
-    # Public API consumed by GUI
-    # ------------------------------------------------------------------ #
     def register(
         self,
         username: str,
@@ -131,7 +100,7 @@ class UserManager:
         display_name: str,
         avatar_path: Optional[str] = None,
     ) -> Tuple[bool, str]:
-        """Register a new user."""
+        
         if not username:
             return False, "Username/email is required"
         if not display_name:
@@ -149,7 +118,6 @@ class UserManager:
             if user.display_name.lower() == display_name.lower():
                 return False, "Display name already exists"
 
-        # Normalize username for folder name
         folder_name = _normalize_username(username)
         
         user = User(
@@ -164,7 +132,7 @@ class UserManager:
         return True, "Registration successful"
 
     def login(self, username: str, password: str) -> Tuple[bool, Optional[User], str]:
-        """Validate credentials and return (success, user, message)."""
+        
         if not username or not password:
             return False, None, "Missing username or password"
 
@@ -182,13 +150,8 @@ class UserManager:
         return self.users.get(username.lower())
     
     def get_user_folder(self, username: str) -> Optional[str]:
-        """
-        Get the folder name for a username.
-        Returns None if user doesn't exist.
-        """
+        
         user = self.get_user(username)
         if user:
             return user.get_folder_name()
         return None
-
-

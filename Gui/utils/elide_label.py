@@ -25,7 +25,6 @@ class ElideLabel(QLabel):
         return QSize(min_width, min_height)
 
     def sizeHint(self):
-        # Override để trả về kích thước nhỏ, tránh layout allocate lớn
         return self.minimumSizeHint()
 
     def paintEvent(self, event):

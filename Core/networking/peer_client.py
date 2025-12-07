@@ -1,7 +1,3 @@
-"""
-Simple TCP client helper used to send a single message to another peer.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -12,11 +8,7 @@ from Core.utils import config
 
 log = logging.getLogger(__name__)
 
-
 class PeerClient:
-    """
-    Sends newline-delimited JSON payloads to a peer's TCP server.
-    """
 
     def send(self, peer_ip: str, peer_port: int, message: Message) -> bool:
         payload = message.to_json() + "\n"
@@ -30,4 +22,3 @@ class PeerClient:
             except (OSError, ConnectionError) as exc:
                 log.warning("Failed to send message to %s:%s -> %s", peer_ip, peer_port, exc)
                 return False
-
