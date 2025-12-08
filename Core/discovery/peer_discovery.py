@@ -67,14 +67,18 @@ class PeerDiscovery:
             "tcp_port": self.tcp_port,  # MUST be included
             "ip": self._local_ip,       # include sender IP for LAN mode
         }
+        log.info("[Discovery] Broadcasting as %s (%s) on %s:%s, tcp_port=%s", 
+                self.display_name, self.peer_id, self._broadcast_addr, config.UDP_DISCOVERY_PORT, self.tcp_port)
+        
         while not self._stop_event.is_set():
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
                     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                     sock.settimeout(0.2)
                     sock.sendto(json.dumps(payload).encode("utf-8"), (self._broadcast_addr, config.UDP_DISCOVERY_PORT))
+                    log.debug("[Discovery] Broadcast sent to %s:%s", self._broadcast_addr, config.UDP_DISCOVERY_PORT)
             except OSError as exc:
-                log.debug("Discovery broadcast failed: %s", exc)
+                log.warning("[Discovery] Broadcast failed: %s", exc)
             self._stop_event.wait(config.UDP_DISCOVERY_INTERVAL)
 
     def _listen_loop(self):
@@ -83,8 +87,9 @@ class PeerDiscovery:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             sock.bind(("", config.UDP_DISCOVERY_PORT))
             sock.settimeout(config.UDP_DISCOVERY_TIMEOUT)
+            log.info("[Discovery] Listening on UDP port %s", config.UDP_DISCOVERY_PORT)
         except OSError as exc:
-            log.error("Failed to bind discovery socket: %s", exc)
+            log.error("[Discovery] Failed to bind discovery socket on port %s: %s", config.UDP_DISCOVERY_PORT, exc)
             return
 
         with sock:
@@ -99,12 +104,16 @@ class PeerDiscovery:
                 try:
                     packet = json.loads(data.decode("utf-8"))
                 except json.JSONDecodeError:
+                    log.debug("[Discovery] Received invalid JSON from %s", ip)
                     continue
 
                 if packet.get("type") != config.DISCOVERY_PACKET_TYPE:
                     continue
                 if packet.get("peer_id") == self.peer_id:
                     continue  # ignore self
+                
+                log.info("[Discovery] Received from %s: %s (%s) tcp_port=%s", 
+                        ip, packet.get("display_name"), packet.get("peer_id"), packet.get("tcp_port"))
 
                 tcp_port = packet.get("tcp_port")
                 if not tcp_port or not isinstance(tcp_port, (int, str)):

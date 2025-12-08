@@ -157,10 +157,14 @@ class MainWindowController(QObject):
             last_seen = peer.get("last_seen", 0)
             is_online = (now - last_seen) < 15
             
+            # Only show online peers in suggestions
+            if not is_online:
+                continue
+            
             suggestions.append({
                 "peer_id": peer_id,
                 "name": peer.get("display_name", "Unknown"),
-                "status_text": "Online" if is_online else "Offline",
+                "status_text": "Online",
                 "is_added": False,
             })
             added_peer_ids.add(peer_id)
