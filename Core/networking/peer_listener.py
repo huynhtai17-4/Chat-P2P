@@ -47,7 +47,7 @@ class PeerListener:
             self._stop_event.clear()
             self._thread.start()
             
-            log.info("PeerListener started successfully on %s:%s (requested: %s)", host, actual_port, port)
+            log.info("[TCP] Listener started on %s (host=%s, requested=%s)", actual_port, host, port)
             return actual_port
         except OSError as e:
             log.error("Failed to start TCP listener to %s:%s: %s", host, port, e, exc_info=True)

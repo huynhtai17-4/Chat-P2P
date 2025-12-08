@@ -3,8 +3,10 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QScrollArea, QWidget
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtCore import QSize
+import os
+import base64
 from ..utils.avatar import load_circular_pixmap
 
 from .message_bubble import MessageBubble
@@ -23,23 +25,27 @@ class ChatArea(QFrame):
 
         chat_header = self._create_chat_header()
         
-        message_area = QScrollArea()
-        message_area.setObjectName("MessageArea")
-        message_area.setWidgetResizable(True)
-        message_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.message_area = QScrollArea()
+        self.message_area.setObjectName("MessageArea")
+        self.message_area.setWidgetResizable(True)
+        self.message_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         
-        message_content = QWidget()
-        message_content.setObjectName("MessageContent")
-        self.message_layout = QVBoxLayout(message_content)
+        self.message_content = QWidget()
+        self.message_content.setObjectName("MessageContent")
+        self.message_layout = QVBoxLayout(self.message_content)
         self.message_layout.setSpacing(10)
         self.message_layout.addStretch()
         
-        message_area.setWidget(message_content)
+        self.message_area.setWidget(self.message_content)
+        # Auto-scroll whenever the scroll range changes (new content added)
+        self.message_area.verticalScrollBar().rangeChanged.connect(
+            lambda _min, _max: self.scroll_to_bottom()
+        )
 
         input_bar = self._create_input_bar()
 
         layout.addWidget(chat_header)
-        layout.addWidget(message_area, 1)
+        layout.addWidget(self.message_area, 1)
         layout.addWidget(input_bar)
 
         self.controller = ChatAreaController(self)
@@ -106,6 +112,26 @@ class ChatArea(QFrame):
 
     def _create_input_bar(self):
         
+        input_container = QWidget()
+        input_container.setObjectName("ChatInputContainer")
+        
+        main_layout = QVBoxLayout(input_container)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        
+        self.preview_area = QWidget()
+        self.preview_area.setObjectName("PreviewArea")
+        self.preview_area.setVisible(False)
+        preview_layout = QVBoxLayout(self.preview_area)
+        preview_layout.setContentsMargins(10, 8, 10, 8)
+        preview_layout.setSpacing(8)
+        
+        self.preview_items_layout = QVBoxLayout()
+        self.preview_items_layout.setSpacing(8)
+        preview_layout.addLayout(self.preview_items_layout)
+        
+        main_layout.addWidget(self.preview_area)
+        
         input_frame = QFrame()
         input_frame.setObjectName("ChatInputBar")
         
@@ -124,12 +150,6 @@ class ChatArea(QFrame):
         self.emoji_icon.setIconSize(QSize(22, 22))
         self.emoji_icon.setFlat(True)
         self.emoji_icon.setObjectName("IconButton")
-        
-        self.mic_icon = QPushButton()
-        self.mic_icon.setIcon(QIcon("Gui/assets/icons/mic.svg"))
-        self.mic_icon.setIconSize(QSize(22, 22))
-        self.mic_icon.setFlat(True)
-        self.mic_icon.setObjectName("IconButton")
 
         self.message_input = QLineEdit()
         self.message_input.setPlaceholderText("Type a message here...")
@@ -143,24 +163,35 @@ class ChatArea(QFrame):
         
         layout.addWidget(self.clip_icon)
         layout.addWidget(self.emoji_icon)
-        layout.addWidget(self.mic_icon)
         layout.addWidget(self.message_input, 1)
         layout.addWidget(self.send_button)
-
-        return input_frame
+        
+        main_layout.addWidget(input_frame)
+        
+        self.preview_items = {}
+        
+        return input_container
 
     def _setup_controller(self):
         
         self.controller.set_message_input(self.message_input)
         self.controller.set_attach_button(self.clip_icon)
         self.controller.set_emoji_button(self.emoji_icon)
-        self.controller.set_mic_button(self.mic_icon)
         self.controller.set_send_button(self.send_button)
 
-    def add_message(self, text, is_sender, add_to_top=False, time_str=None):
+    def add_message(self, text, is_sender, add_to_top=False, time_str=None, file_name=None, file_data=None, msg_type="text", local_file_path=None):
         
-        bubble = MessageBubble(text, is_sender, time_str=time_str)
+        bubble = MessageBubble(
+            text,
+            is_sender,
+            time_str=time_str,
+            file_name=file_name,
+            file_data=file_data,
+            msg_type=msg_type,
+            local_file_path=local_file_path,
+        )
         bubble_widget = bubble.get_widget()
+        bubble_widget.setMaximumWidth(420)
         
         row_layout = QHBoxLayout()
         row_layout.setContentsMargins(0, 0, 0, 0)
@@ -183,15 +214,8 @@ class ChatArea(QFrame):
         
         self.message_layout.insertLayout(self.message_layout.count() - 1, row_layout)
         
-        from PySide6.QtCore import QTimer
-        parent = self.parent()
-        while parent:
-            if isinstance(parent, QScrollArea):
-                QTimer.singleShot(10, lambda sa=parent: sa.verticalScrollBar().setValue(
-                    sa.verticalScrollBar().maximum()
-                ))
-                break
-            parent = parent.parent()
+        # Auto-scroll logic: always scroll to bottom after adding a new message
+        self.scroll_to_bottom()
         
     def add_date_separator(self, text):
         
@@ -222,7 +246,22 @@ class ChatArea(QFrame):
             is_sender = msg.get('is_sender', False)
             content = msg.get('content', '')
             time_str = msg.get('time_str', None)
-            self.add_message(content, is_sender, time_str=time_str)
+            file_name = msg.get('file_name')
+            file_data = msg.get('file_data')
+            msg_type = msg.get('msg_type', 'text')
+            local_file_path = msg.get('local_file_path')
+            self.add_message(
+                content,
+                is_sender,
+                time_str=time_str,
+                file_name=file_name,
+                file_data=file_data,
+                msg_type=msg_type,
+                local_file_path=local_file_path,
+            )
+        
+        # After loading history, ensure we are at the bottom to show newest
+        self.scroll_to_bottom()
     
     def clear_messages(self):
         
@@ -247,9 +286,6 @@ class ChatArea(QFrame):
 
     def connect_file_attached(self, callback):
         self.controller.file_attached.connect(callback)
-    
-    def connect_audio_recorded(self, callback):
-        self.controller.audio_recorded.connect(callback)
 
     def connect_emoji_selected(self, callback):
         
@@ -258,3 +294,95 @@ class ChatArea(QFrame):
     def connect_message_sent(self, callback):
         
         self.controller.message_sent.connect(callback)
+    
+    def add_preview_item(self, file_name: str, file_data_base64: str, is_image: bool):
+        preview_item = QWidget()
+        preview_item.setObjectName("PreviewItem")
+        preview_item.setStyleSheet("""
+            QWidget#PreviewItem {
+                background-color: #f5f5f5;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 8px;
+            }
+        """)
+        
+        item_layout = QHBoxLayout(preview_item)
+        item_layout.setContentsMargins(8, 8, 8, 8)
+        item_layout.setSpacing(10)
+        
+        if is_image:
+            try:
+                image_data = base64.b64decode(file_data_base64)
+                pixmap = QPixmap()
+                pixmap.loadFromData(image_data)
+                
+                max_size = 60
+                if pixmap.width() > max_size or pixmap.height() > max_size:
+                    pixmap = pixmap.scaled(max_size, max_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                
+                image_label = QLabel()
+                image_label.setPixmap(pixmap)
+                image_label.setFixedSize(max_size, max_size)
+                image_label.setStyleSheet("border-radius: 4px;")
+                item_layout.addWidget(image_label)
+            except:
+                icon_label = QLabel("🖼️")
+                icon_label.setStyleSheet("font-size: 24px;")
+                item_layout.addWidget(icon_label)
+        else:
+            icon_label = QLabel("📄")
+            icon_label.setStyleSheet("font-size: 24px;")
+            item_layout.addWidget(icon_label)
+        
+        name_label = QLabel(file_name)
+        name_label.setStyleSheet("font-size: 12px; color: #333;")
+        name_label.setWordWrap(True)
+        item_layout.addWidget(name_label, 1)
+        
+        remove_btn = QPushButton("✕")
+        remove_btn.setFixedSize(24, 24)
+        remove_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #ff4444;
+                color: white;
+                border: none;
+                border-radius: 12px;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #cc0000;
+            }
+        """)
+        remove_btn.clicked.connect(lambda: self.remove_preview_item(file_name))
+        item_layout.addWidget(remove_btn)
+        
+        self.preview_items[file_name] = (preview_item, file_data_base64, is_image)
+        self.preview_items_layout.addWidget(preview_item)
+        self.preview_area.setVisible(True)
+    
+    def remove_preview_item(self, file_name: str):
+        if file_name in self.preview_items:
+            item_widget, _, _ = self.preview_items[file_name]
+            self.preview_items_layout.removeWidget(item_widget)
+            item_widget.deleteLater()
+            del self.preview_items[file_name]
+            
+            if len(self.preview_items) == 0:
+                self.preview_area.setVisible(False)
+    
+    def clear_preview(self):
+        for file_name in list(self.preview_items.keys()):
+            self.remove_preview_item(file_name)
+    
+    def get_preview_items(self):
+        return self.preview_items
+
+    def scroll_to_bottom(self):
+        """Force the scroll area to the bottom."""
+        if not hasattr(self, "message_area"):
+            return
+        from PySide6.QtCore import QTimer
+        scroll_bar = self.message_area.verticalScrollBar()
+        QTimer.singleShot(0, lambda: scroll_bar.setValue(scroll_bar.maximum()))

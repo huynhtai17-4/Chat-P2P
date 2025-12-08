@@ -38,13 +38,13 @@ class MessageHandlers:
                     ip=sender_ip if sender_ip else "127.0.0.1",
                     tcp_port=0,
                     last_seen=message.timestamp,
-                    status="online",
+                    status="offline",
                 )
             return
         else:
             if sender_ip:
                 peer_info.ip = sender_ip
-            peer_info.touch("online")
+            peer_info.touch()
             log.debug("Updated peer %s IP to %s", message.sender_id, sender_ip)
         
         if message.sender_id not in self.router._friend_request_emitted:
@@ -62,7 +62,7 @@ class MessageHandlers:
         with self.router._lock:
             if message.sender_id in self.router._peers:
                 existing_peer = self.router._peers[message.sender_id]
-                existing_peer.touch("online")
+                existing_peer.touch()
                 if sender_ip:
                     existing_peer.ip = sender_ip
                 if self.router.data_manager:
@@ -90,7 +90,7 @@ class MessageHandlers:
                     ip=sender_ip if sender_ip else "127.0.0.1",
                     tcp_port=0,
                     last_seen=message.timestamp,
-                    status="online",
+                    status="offline",
                 )
                 self.router.temp_discovered_peers[message.sender_id] = peer_info
                 self.router._pending_friend_accepts[message.sender_id] = time.time()
@@ -98,7 +98,7 @@ class MessageHandlers:
             
             if sender_ip:
                 peer_info.ip = sender_ip
-            peer_info.touch("online")
+            peer_info.touch()
             
             self.router._peers[message.sender_id] = peer_info
             
@@ -178,7 +178,7 @@ class MessageHandlers:
                     existing_peer.ip = peer_ip
                     existing_peer.tcp_port = peer_tcp_port
                     existing_peer.display_name = message.sender_name
-                    existing_peer.touch("online")
+                    existing_peer.touch()
                     peer_info = existing_peer
                 else:
                     peer_info = PeerInfo(
@@ -187,7 +187,7 @@ class MessageHandlers:
                         ip=peer_ip,
                         tcp_port=peer_tcp_port,
                         last_seen=message.timestamp,
-                        status="online",
+                        status="offline",
                     )
                     self.router._peers[message.sender_id] = peer_info
                 
@@ -231,10 +231,6 @@ class MessageHandlers:
             
             log.info("Updated peer %s (%s) status: %s -> %s", 
                     peer.display_name, message.sender_id, old_status, new_status)
-            
-            if self.router.data_manager:
-                self.router.data_manager.update_peer(peer)
-            
             if self.router._on_peer_callback:
                 try:
                     self.router._on_peer_callback(peer)

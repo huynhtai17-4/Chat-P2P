@@ -52,11 +52,7 @@ class PeerManager:
     def get_known_peers(self) -> List[PeerInfo]:
         
         with self.router._lock:
-            now = time.time()
-            return sorted(
-                list(self.router._peers.values()),
-                key=lambda peer: now - peer.last_seen,
-            )
+            return list(self.router._peers.values())
     
     def get_temp_discovered_peers(self) -> List[PeerInfo]:
         
@@ -84,30 +80,8 @@ class PeerManager:
         return False
     
     def cleanup_offline_peers(self, max_offline_time: float = 600.0) -> int:
-        
-        from Core.utils import config
-        offline_timeout = getattr(config, 'OFFLINE_PEER_CLEANUP_TIMEOUT', max_offline_time)
-        
-        with self.router._lock:
-            peers_to_remove = []
-            now = time.time()
-            for peer_id, peer in self.router._peers.items():
-                if peer.status == "offline" and (now - peer.last_seen > offline_timeout):
-                    peers_to_remove.append(peer_id)
-            
-            for peer_id in peers_to_remove:
-                log.info("Removing offline peer %s from friends list (offline for > %s seconds)", peer_id, offline_timeout)
-                del self.router._peers[peer_id]
-                if self.router.data_manager:
-                    self.router.data_manager.remove_peer(peer_id)
-                if self.router._on_peer_callback:
-                    try:
-                        removed_peer = PeerInfo(peer_id=peer_id, display_name="", ip="", tcp_port=0, last_seen=0, status="removed")
-                        self.router._on_peer_callback(removed_peer)
-                    except Exception as e:
-                        log.error("Error in _on_peer_callback for removed peer %s: %s", peer_id, e, exc_info=True)
-        
-        return len(peers_to_remove)
+        # Disabled offline cleanup (no heartbeat/last_seen based removal)
+        return 0
     
     def notify_existing_peers(self):
         

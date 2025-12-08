@@ -210,7 +210,6 @@ class RegisterWindow(QDialog):
                 pixmap = load_circular_pixmap(file_path, size=100)
                 self.avatar_label.setPixmap(pixmap)
                 self.selected_avatar_path = file_path
-                print(f"[Register] Selected avatar: {file_path}")
             except Exception as e:
                 QMessageBox.warning(self, "Error", f"Failed to load avatar: {str(e)}")
     

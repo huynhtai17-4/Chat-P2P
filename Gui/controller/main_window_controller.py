@@ -53,7 +53,7 @@ class MainWindowController(QObject):
         self.unread_counts = defaultdict(int)
         self.current_peer_id: str = ""
         self._pending_files = {}
-        self._pending_audios = {}
+        self._preview_items = {}
         self.pending_friend_requests: Dict[str, str] = {}
         self._active_request_dialogs: Dict[str, QDialog] = {}
         
@@ -110,32 +110,6 @@ class MainWindowController(QObject):
     
     def _get_conversations(self) -> List[Dict]:
         conversations = []
-        known_peer_ids = set(self.peers.keys())
-        all_history = self.chat_core.get_message_history()
-        
-        peer_ids_from_messages = set()
-        for msg in all_history:
-            if msg.get("sender_id") == self.chat_core.peer_id:
-                other_peer_id = msg.get("peer_id")
-            else:
-                other_peer_id = msg.get("sender_id")
-            
-            if other_peer_id and other_peer_id != self.chat_core.peer_id:
-                peer_ids_from_messages.add(other_peer_id)
-        
-        for peer_id in peer_ids_from_messages:
-            if peer_id not in known_peer_ids:
-                peer_messages = [m for m in all_history if m.get("peer_id") == peer_id or m.get("sender_id") == peer_id]
-                if peer_messages:
-                    last_msg = peer_messages[-1]
-                    self.peers[peer_id] = {
-                        "peer_id": peer_id,
-                        "display_name": last_msg.get("sender_name", "Unknown"),
-                        "status": "unknown",
-                        "ip": "",
-                        "tcp_port": 0,
-                    }
-                    log.info("Rebuilt peer %s from messages.json", peer_id)
         
         for peer_id, peer in self.peers.items():
             history = self.chat_core.get_message_history(peer_id)
@@ -251,7 +225,6 @@ class MainWindowController(QObject):
                 self.show_message_box.emit("warning", "Friend Request", f"{error_msg}\nPeer may be offline or invalid.")
         except Exception as e:
             import traceback
-            traceback.print_exc()
             self.show_message_box.emit("error", "Error", f"An error occurred: {e}")
     
     def on_suggestion_chat_requested(self, peer_id: str, peer_name: str):
@@ -267,56 +240,70 @@ class MainWindowController(QObject):
             self.show_message_box.emit("info", "Select chat", "Please choose a conversation before sending messages.")
             return False
         
-        file_name = None
-        file_data = None
-        audio_data = None
+        preview_items = getattr(self, '_preview_items', {})
+        message_text = message_text.strip() if message_text else ""
         
-        for note, (fname, fdata) in self._pending_files.items():
-            if note in message_text:
-                file_name = fname
-                file_data = fdata
-                message_text = message_text.replace(note, "").strip()
-                break
-        
-        for note, adata in self._pending_audios.items():
-            if note in message_text:
-                audio_data = adata
-                message_text = message_text.replace(note, "").strip()
-                break
-        
-        if not message_text and not file_name and not audio_data:
+        if not message_text and not preview_items:
             return False
         
-        if not message_text:
-            if file_name:
-                message_text = f"📎{file_name}"
-            elif audio_data:
-                message_text = "🎤 Audio"
+        success_count = 0
+        total_items = len(preview_items) + (1 if message_text else 0)
         
-        success = self.chat_core.send_message(
-            self.current_peer_id,
-            message_text,
-            file_name=file_name,
-            file_data=file_data,
-            audio_data=audio_data
-        )
+        for file_name, (file_data_base64, is_image) in preview_items.items():
+            msg_type = "image" if is_image else "file"
+            content = "" if is_image else file_name
+            
+            try:
+                success = self.chat_core.send_message(
+                    self.current_peer_id,
+                    content,
+                    msg_type=msg_type,
+                    file_name=file_name,
+                    file_data=file_data_base64,
+                    audio_data=None
+                )
+                
+                if success:
+                    success_count += 1
+            except Exception as e:
+                pass
         
-        if file_name:
-            self._pending_files.pop(f"📎{file_name}", None)
-        if audio_data:
-            self._pending_audios.pop(f"🎤 Audio", None)
+        if message_text:
+            try:
+                success = self.chat_core.send_message(
+                    self.current_peer_id,
+                    message_text,
+                    msg_type="text",
+                    file_name=None,
+                    file_data=None,
+                    audio_data=None
+                )
+                if success:
+                    success_count += 1
+            except Exception as e:
+                pass
         
-        if not success:
+        if preview_items:
+            self._preview_items = {}
+            if hasattr(self, 'clear_preview_callback'):
+                self.clear_preview_callback()
+        
+        if success_count == 0 and total_items > 0:
             self.show_message_box.emit("warning", "Network error", "Failed to send message. Peer might be offline.")
-        return success
+        elif success_count > 0 and success_count < total_items:
+            self.show_message_box.emit("warning", "Partial send", f"Sent {success_count}/{total_items} items. Some may have failed.")
+        
+        return success_count > 0
     
-    def handle_file_attached(self, file_path: str, file_name: str, file_data_base64: str):
-        note = f"📎{file_name}"
-        self._pending_files[note] = (file_name, file_data_base64)
+    def handle_file_attached(self, file_path: str, file_name: str, file_data_base64: str, is_image: bool):
+        if not hasattr(self, '_preview_items'):
+            self._preview_items = {}
+        
+        self._preview_items[file_name] = (file_data_base64, is_image)
+        
+        if hasattr(self, 'add_preview_callback'):
+            self.add_preview_callback(file_name, file_data_base64, is_image)
     
-    def handle_audio_recorded(self, audio_path: str, audio_data_base64: str):
-        note = "🎤 Audio"
-        self._pending_audios[note] = audio_data_base64
     
     def _on_message_received_signal(self, payload: Dict):
         try:
@@ -330,30 +317,28 @@ class MainWindowController(QObject):
             if not is_sender and peer_id != self.current_peer_id:
                 self.unread_counts[peer_id] = self.unread_counts.get(peer_id, 0) + 1
             
+            file_name = payload.get("file_name")
+            file_data = payload.get("file_data")
+            
+            msg_type = payload.get("msg_type", "text")
+            
             if peer_id == self.current_peer_id:
-                file_name = payload.get("file_name")
-                file_data = payload.get("file_data")
-                audio_data = payload.get("audio_data")
-                
-                display_content = content
-                if file_name:
-                    display_content = f"📎 {file_name}\n{content}" if content else f"📎 {file_name}"
-                elif audio_data:
-                    display_content = f"🎤 Audio\n{content}" if content else "🎤 Audio"
+                if msg_type == "image" or msg_type == "file":
+                    display_content = ""
+                else:
+                    display_content = content
                 
                 payload["display_content"] = display_content
                 
-                if file_name and file_data:
-                    self._save_received_file(peer_id, file_name, file_data)
-                if audio_data:
-                    self._save_received_audio(peer_id, audio_data)
+                if file_name and file_data and not payload.get("is_sender", False):
+                    saved_path = self._save_received_file(peer_id, file_name, file_data)
+                    if saved_path:
+                        payload["local_file_path"] = saved_path
             
             self.message_received.emit(payload)
             self._refresh_chat_list()
         except Exception as e:
             import traceback
-            print(f"Error in _on_message_received_signal: {e}")
-            traceback.print_exc()
     
     def _get_peer_folder_name(self, peer_id: str) -> str:
         from app.user_manager import _normalize_username
@@ -367,49 +352,15 @@ class MainWindowController(QObject):
     
     def _save_received_file(self, peer_id: str, file_name: str, file_data_base64: str):
         try:
-            peer_folder_name = self._get_peer_folder_name(peer_id)
-            peer_dir = os.path.join("data", peer_folder_name)
-            files_dir = os.path.join(peer_dir, "files")
-            os.makedirs(files_dir, exist_ok=True)
+            if hasattr(self.chat_core, 'router') and hasattr(self.chat_core.router, 'data_manager'):
+                data_manager = self.chat_core.router.data_manager
+                if data_manager:
+                    file_data = base64.b64decode(file_data_base64)
+                    file_path = data_manager.save_file_for_peer(peer_id, file_name, file_data)
+                    return str(file_path)
             
-            file_path = os.path.join(files_dir, file_name)
-            counter = 1
-            while os.path.exists(file_path):
-                name, ext = os.path.splitext(file_name)
-                file_path = os.path.join(files_dir, f"{name}_{counter}{ext}")
-                counter += 1
-            
-            file_data = base64.b64decode(file_data_base64)
-            with open(file_path, 'wb') as f:
-                f.write(file_data)
-            
-            print(f"File saved to peer folder: {file_path}")
         except Exception as e:
-            print(f"Error saving file: {e}")
-    
-    def _save_received_audio(self, peer_id: str, audio_data_base64: str):
-        try:
-            peer_folder_name = self._get_peer_folder_name(peer_id)
-            peer_dir = os.path.join("data", peer_folder_name)
-            audios_dir = os.path.join(peer_dir, "audios")
-            os.makedirs(audios_dir, exist_ok=True)
-            
-            audio_file = f"audio_{int(time.time())}.wav"
-            file_path = os.path.join(audios_dir, audio_file)
-            
-            counter = 1
-            while os.path.exists(file_path):
-                audio_file = f"audio_{int(time.time())}_{counter}.wav"
-                file_path = os.path.join(audios_dir, audio_file)
-                counter += 1
-            
-            audio_data = base64.b64decode(audio_data_base64)
-            with open(file_path, 'wb') as f:
-                f.write(audio_data)
-            
-            print(f"Audio saved to peer folder: {file_path}")
-        except Exception as e:
-            print(f"Error saving audio: {e}")
+            import traceback
     
     def _on_peer_updated_signal(self, peer_info: Dict):
         try:
@@ -419,24 +370,18 @@ class MainWindowController(QObject):
                 self._refresh_chat_list()
         except Exception as e:
             import traceback
-            print(f"Error in _on_peer_updated_signal: {e}")
-            traceback.print_exc()
     
     def _on_temp_peer_updated_signal(self, peer_info: Dict):
         try:
             self._refresh_suggestions(debounced=False)
         except Exception as e:
             import traceback
-            print(f"Error in _on_temp_peer_updated_signal: {e}")
-            traceback.print_exc()
     
     def _on_temp_peer_removed_signal(self, peer_id: str):
         try:
             self._remove_peer_from_suggestions(peer_id)
         except Exception as e:
             import traceback
-            print(f"Error in _on_temp_peer_removed_signal: {e}")
-            traceback.print_exc()
     
     def _remove_peer_from_suggestions(self, peer_id: str):
         if not peer_id:
@@ -464,7 +409,6 @@ class MainWindowController(QObject):
         except Exception as e:
             import traceback
             log.error(f"Error in _on_friend_request_received_signal: {e}")
-            traceback.print_exc()
             self.show_message_box.emit("error", "Error", f"Error processing friend request: {e}")
     
     def on_accept_friend_request(self, peer_id: str):
@@ -515,7 +459,6 @@ class MainWindowController(QObject):
         except Exception as e:
             import traceback
             log.error(f"Error in _on_friend_accepted_signal: {e}")
-            traceback.print_exc()
             self.show_message_box.emit("error", "Error", f"Error processing friend accept: {e}")
     
     def _on_friend_rejected_signal(self, peer_id: str):
@@ -530,8 +473,6 @@ class MainWindowController(QObject):
             self.show_message_box.emit("warning", "Friend Request Rejected", f"{peer_name} rejected your friend request.")
         except Exception as e:
             import traceback
-            print(f"Error in _on_friend_rejected_signal: {e}")
-            traceback.print_exc()
     
     def _cleanup_offline_peers(self):
         if self.chat_core:

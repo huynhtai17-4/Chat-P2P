@@ -2,16 +2,13 @@ from PySide6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QLineEdit, QListWidget, QListWidgetItem
 )
-from PySide6.QtCore import QSize
-from PySide6.QtGui import QIcon
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import QLineEdit
-from ..utils.avatar import load_circular_pixmap
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QIcon, QAction
 import os
 
 from .chat_item import ChatItemWidget 
 from Gui.controller.chat_list_controller import ChatListController
+from ..utils.avatar import load_circular_pixmap
 
 class ChatList(QFrame):
     def __init__(self, user_name: str = "User", avatar_path: str = None):

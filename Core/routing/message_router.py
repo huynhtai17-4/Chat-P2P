@@ -94,7 +94,19 @@ class MessageRouter:
         
         self.peer_listener = PeerListener(self.peer_id, self.data_manager, message_handler)
         try:
-            actual_port = self.peer_listener.start(port=self.tcp_port)
+            desired_port = self.tcp_port
+            actual_port = None
+            # Retry ports in range 55000-55199 if the desired port is busy
+            for try_port in [desired_port] + list(range(55000, 55200)):
+                try:
+                    actual_port = self.peer_listener.start(port=try_port)
+                    break
+                except RuntimeError as e:
+                    log.warning("Port %s unavailable (%s). Trying next...", try_port, e)
+                    continue
+            if actual_port is None:
+                raise RuntimeError("No available TCP port in range 55000-55199")
+
             if actual_port != self.tcp_port:
                 log.warning("TCP port changed from %s to %s (port was in use)", self.tcp_port, actual_port)
                 self.tcp_port = actual_port
@@ -104,13 +116,18 @@ class MessageRouter:
             
             import time
             time.sleep(0.1)
-            log.info("PeerListener started successfully on port %s", self.tcp_port)
+            if not self.peer_listener._thread or not self.peer_listener._thread.is_alive():
+                raise RuntimeError("TCP Listener thread not running after start()")
+            log.info("[TCP] Listener started on %s", self.tcp_port)
         except Exception as e:
             log.error("Failed to start PeerListener: %s", e)
             raise RuntimeError(f"Failed to start TCP listener: {e}")
 
         if self.data_manager:
             self._peers = self.data_manager.load_peers()
+            # Force runtime status to offline at startup
+            for peer in self._peers.values():
+                peer.status = "offline"
             log.info("Loaded %s friends from peers.json", len(self._peers))
         
         self.peer_discovery = PeerDiscovery(
@@ -149,6 +166,7 @@ class MessageRouter:
             if peer_info.peer_id in self._peers:
                 existing_peer = self._peers[peer_info.peer_id]
                 updated = False
+                
                 if existing_peer.ip != peer_info.ip:
                     log.info("Updating friend %s IP from %s to %s (from discovery)", 
                             peer_info.peer_id, existing_peer.ip, peer_info.ip)
@@ -159,14 +177,20 @@ class MessageRouter:
                             peer_info.peer_id, existing_peer.tcp_port, peer_info.tcp_port)
                     existing_peer.tcp_port = peer_info.tcp_port
                     updated = True
-                existing_peer.status = "online"
-                existing_peer.touch("online")
+                existing_peer.touch()
+                
                 if updated and self.data_manager:
                     if existing_peer.tcp_port and 55000 <= existing_peer.tcp_port <= 55199:
                         self.data_manager.update_peer(existing_peer)
                     else:
                         log.warning("Cannot save peer %s: tcp_port is invalid (%s). Waiting for valid discovery.", 
                                    peer_info.peer_id, existing_peer.tcp_port)
+                
+                # Send our ONLINE status back to the discovered friend to refresh their view
+                if self._send_status_to_peer(existing_peer, "online"):
+                    log.info("Sent ONLINE status to %s after discovery", existing_peer.peer_id)
+                else:
+                    log.debug("Failed to send ONLINE status to %s after discovery", existing_peer.peer_id)
                 
                 if peer_info.peer_id in self._pending_friend_accepts:
                     log.info("Discovery updated peer %s with valid tcp_port %s. Completing pending friend accept.", 
@@ -197,7 +221,7 @@ class MessageRouter:
                         peer_info.peer_id, peer_info.tcp_port)
                 existing_temp.tcp_port = peer_info.tcp_port
                 existing_temp.ip = peer_info.ip
-                existing_temp.touch("online")
+                existing_temp.touch()
                 peer_info = existing_temp
             else:
                 self.temp_discovered_peers[peer_info.peer_id] = peer_info
@@ -259,8 +283,19 @@ class MessageRouter:
             message.content,
         )
         
+        peer_id = message.sender_id if message.sender_id != self.peer_id else message.receiver_id
+        
         if self.data_manager:
-            self.data_manager.append_message(message)
+            # Persist files/images for the recipient side
+            try:
+                if message.msg_type in ("file", "image") and getattr(message, "file_name", None) and getattr(message, "file_data", None):
+                    import base64
+                    file_bytes = base64.b64decode(message.file_data)
+                    self.data_manager.save_file_for_peer(peer_id, message.file_name, file_bytes)
+            except Exception:
+                pass
+
+            self.data_manager.append_message(message, peer_id)
         
         if self._on_message_callback:
             self._on_message_callback(message)
@@ -313,19 +348,6 @@ class MessageRouter:
                 self.data_manager.save_peers(peers)
             return False, None
         
-        if target.status != "online":
-            log.warning("Cannot send message to %s: Peer status is %s (not online)", to_peer_id, target.status)
-            return False, None
-        
-        time_since_last_seen = time.time() - target.last_seen
-        if time_since_last_seen > 300:  # 5 minutes
-            log.warning("Cannot send message to %s: Peer last_seen is too old (%s seconds ago). "
-                       "Marking as offline.", to_peer_id, int(time_since_last_seen))
-            target.status = "offline"
-            if self.data_manager:
-                self.data_manager.update_peer(target)
-            return False, None
-
         message = Message.create(
             sender_id=self.peer_id,
             sender_name=self.display_name or "Unknown",
@@ -342,19 +364,18 @@ class MessageRouter:
         if success:
             self._peer_send_failures.pop(to_peer_id, None)
             if self.data_manager:
-                self.data_manager.append_message(message)
+                self.data_manager.append_message(message, to_peer_id)
+                try:
+                    if msg_type in ("file", "image") and file_name and file_data:
+                        import base64
+                        file_bytes = base64.b64decode(file_data)
+                        self.data_manager.save_file_for_peer(to_peer_id, file_name, file_bytes)
+                except Exception:
+                    pass
             log.info("Message sent successfully to %s (%s) at %s:%s", target.display_name, to_peer_id, target.ip, target.tcp_port)
         else:
             failures = self._peer_send_failures.get(to_peer_id, 0) + 1
             self._peer_send_failures[to_peer_id] = failures
-            
-            if failures >= 3:
-                log.warning("Peer %s failed %s times, marking as offline", to_peer_id, failures)
-                target.status = "offline"
-                if self.data_manager:
-                    self.data_manager.update_peer(target)
-                self._peer_send_failures.pop(to_peer_id, None)
-            
             log.warning("Failed to send message to %s (%s) at %s:%s - connection refused or peer offline", to_peer_id, target.display_name, target.ip, target.tcp_port)
         return success, message if success else None
 
@@ -362,7 +383,7 @@ class MessageRouter:
         
         return self.peer_manager.get_known_peers()
 
-    def get_message_history(self, peer_id: Optional[str] = None) -> List[Message]:
+    def get_message_history(self, peer_id: str) -> List[Message]:
         if not self.data_manager:
             return []
         return self.data_manager.load_messages(peer_id=peer_id)
@@ -429,3 +450,28 @@ class MessageRouter:
     def _notify_existing_peers(self):
         
         self.peer_manager.notify_existing_peers()
+
+    def _send_status_to_peer(self, peer: PeerInfo, status: str) -> bool:
+        
+        if status not in ("online", "offline"):
+            return False
+        if not peer.ip or not peer.tcp_port or peer.tcp_port == 0:
+            return False
+        
+        try:
+            if status == "online":
+                message = Message.create_online_status(
+                    sender_id=self.peer_id,
+                    sender_name=self.display_name or "Unknown",
+                    receiver_id=peer.peer_id
+                )
+            else:
+                message = Message.create_offline_status(
+                    sender_id=self.peer_id,
+                    sender_name=self.display_name or "Unknown",
+                    receiver_id=peer.peer_id
+                )
+            return self.peer_client.send(peer.ip, peer.tcp_port, message)
+        except Exception as e:
+            log.warning("Failed to send %s status to %s: %s", status, peer.peer_id, e)
+            return False

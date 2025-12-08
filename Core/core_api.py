@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
+import base64
 from typing import Callable, Dict, List, Optional
 
 try:
@@ -100,7 +101,7 @@ class ChatCore:
         peers = self.router.get_known_peers()
         return [self._peer_to_dict(peer) for peer in peers]
 
-    def get_message_history(self, peer_id: Optional[str] = None) -> List[Dict]:
+    def get_message_history(self, peer_id: str) -> List[Dict]:
         history = self.router.get_message_history(peer_id)
         return [self._message_to_dict(msg) for msg in history]
     
@@ -196,6 +197,25 @@ class ChatCore:
 
     def _message_to_dict(self, message: Message) -> Dict:
         peer_id = message.receiver_id if message.sender_id == self.peer_id else message.sender_id
+        local_file_path = None
+
+        try:
+            if getattr(message, "file_name", None) and self.router and self.router.data_manager:
+                files_dir = self.router.data_manager.get_peer_files_dir(peer_id)
+                candidate = files_dir / message.file_name
+
+                if not candidate.exists() and getattr(message, "file_data", None):
+                    try:
+                        file_bytes = base64.b64decode(message.file_data)
+                        candidate = self.router.data_manager.save_file_for_peer(peer_id, message.file_name, file_bytes)
+                    except Exception:
+                        candidate = files_dir / message.file_name
+
+                if candidate.exists():
+                    local_file_path = str(candidate)
+        except Exception:
+            pass
+
         return {
             "message_id": message.message_id,
             "peer_id": peer_id,
@@ -206,7 +226,9 @@ class ChatCore:
             "time_str": _format_time(message.timestamp),
             "date_str": _format_date(message.timestamp),
             "is_sender": message.sender_id == self.peer_id,
+            "msg_type": message.msg_type,
             "file_name": getattr(message, 'file_name', None),
             "file_data": getattr(message, 'file_data', None),
             "audio_data": getattr(message, 'audio_data', None),
+            "local_file_path": local_file_path,
         }

@@ -9,6 +9,7 @@ from typing import Dict, List, Optional
 from Core.models.message import Message
 from Core.models.peer_info import PeerInfo
 from Core.utils import config
+from Core.storage.peer_message_storage import PeerMessageStorage
 
 class DataManager:
 
@@ -19,6 +20,7 @@ class DataManager:
         self.root = data_root / username
         self.root.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
+        self._peer_storages: Dict[str, PeerMessageStorage] = {}
 
     def _read_json(self, filename: str, default):
         path = self.root / filename
@@ -59,6 +61,7 @@ class DataManager:
         return peers
 
     def save_peers(self, peers: Dict[str, PeerInfo]):
+        # Persist peers without runtime-only status
         serializable = {peer_id: info.to_dict() for peer_id, info in peers.items()}
         self._write_json(config.PEERS_FILENAME, serializable)
 
@@ -81,17 +84,26 @@ class DataManager:
             del peers[peer_id]
             self.save_peers(peers)
 
-    def append_message(self, message: Message):
-        messages = self._read_json(config.MESSAGES_FILENAME, [])
-        messages.append(message.to_dict())
-        self._write_json(config.MESSAGES_FILENAME, messages)
+    def _get_peer_storage(self, peer_id: str) -> PeerMessageStorage:
+        if peer_id not in self._peer_storages:
+            self._peer_storages[peer_id] = PeerMessageStorage(self.root, peer_id)
+        return self._peer_storages[peer_id]
+    
+    def append_message(self, message: Message, peer_id: str):
+        storage = self._get_peer_storage(peer_id)
+        storage.append_message(message)
 
-    def load_messages(self, peer_id: Optional[str] = None) -> List[Message]:
-        raw_messages = self._read_json(config.MESSAGES_FILENAME, [])
-        messages = [Message.from_dict(item) for item in raw_messages]
-        if peer_id:
-            messages = [msg for msg in messages if msg.sender_id == peer_id or msg.receiver_id == peer_id]
-        return messages
+    def load_messages(self, peer_id: str) -> List[Message]:
+        storage = self._get_peer_storage(peer_id)
+        return storage.load_messages()
+    
+    def save_file_for_peer(self, peer_id: str, file_name: str, file_data: bytes) -> Path:
+        storage = self._get_peer_storage(peer_id)
+        return storage.save_file(file_name, file_data)
+    
+    def get_peer_files_dir(self, peer_id: str) -> Path:
+        storage = self._get_peer_storage(peer_id)
+        return storage.get_files_dir()
 
     def load_settings(self) -> Dict:
         return self._read_json(config.SETTINGS_FILENAME, {})

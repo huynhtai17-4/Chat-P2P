@@ -138,7 +138,6 @@ class LoginWindow(QDialog):
         success, user, message = self.user_manager.login(username, password)
         
         if success:
-            print(f"[Login] Successful: {user.display_name}")
             self.login_successful.emit(user)
             self.accept()
         else:

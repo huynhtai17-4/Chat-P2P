@@ -65,6 +65,7 @@ class PeerDiscovery:
             "peer_id": self.peer_id,
             "display_name": self.display_name,
             "tcp_port": self.tcp_port,  # MUST be included
+            "ip": self._local_ip,       # include sender IP for LAN mode
         }
         while not self._stop_event.is_set():
             try:
@@ -135,7 +136,7 @@ class PeerDiscovery:
                     ip=peer_ip,
                     tcp_port=tcp_port,  # From discovery packet (authoritative)
                     last_seen=time.time(),
-                    status="online",
+                    status="offline",  # discovery does not imply online; wait for ONLINE event
                 )
                 
                 if self.on_peer_found:

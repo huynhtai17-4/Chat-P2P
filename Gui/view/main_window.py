@@ -75,24 +75,14 @@ class MainWindow(QMainWindow):
 
         chat_area_controller = self.center_panel.get_controller()
         chat_area_controller.set_send_handler(self.controller.send_message)
-        def handle_file(file_path, file_name, file_data_base64):
-            self.controller.handle_file_attached(file_path, file_name, file_data_base64)
-            if hasattr(self.center_panel, 'message_input') and self.center_panel.message_input:
-                note = f"📎{file_name}"
-                current_text = self.center_panel.message_input.text()
-                if note not in current_text:
-                    self.center_panel.message_input.setText(f"{current_text} {note}".strip())
         
-        def handle_audio(audio_path, audio_data_base64):
-            self.controller.handle_audio_recorded(audio_path, audio_data_base64)
-            if hasattr(self.center_panel, 'message_input') and self.center_panel.message_input:
-                note = "🎤 Audio"
-                current_text = self.center_panel.message_input.text()
-                if note not in current_text:
-                    self.center_panel.message_input.setText(f"{current_text} {note}".strip())
+        def handle_file(file_path, file_name, file_data_base64, is_image):
+            self.controller.handle_file_attached(file_path, file_name, file_data_base64, is_image)
         
         self.center_panel.connect_file_attached(handle_file)
-        self.center_panel.connect_audio_recorded(handle_audio)
+        
+        self.controller.add_preview_callback = lambda name, data, is_img: self.center_panel.add_preview_item(name, data, is_img)
+        self.controller.clear_preview_callback = lambda: self.center_panel.clear_preview()
 
         self.right_sidebar.suggestion_add_requested.connect(self.controller.on_suggestion_add_requested)
         self.right_sidebar.suggestion_chat_requested.connect(self.controller.on_suggestion_chat_requested)
@@ -108,9 +98,21 @@ class MainWindow(QMainWindow):
         is_sender = payload.get("is_sender", False)
         display_content = payload.get("display_content", payload.get("content", ""))
         time_str = payload.get("time_str", "")
+        file_name = payload.get("file_name")
+        file_data = payload.get("file_data")
+        local_file_path = payload.get("local_file_path")
+        msg_type = payload.get("msg_type", "text")
         
         if peer_id == self.controller.current_peer_id and self.center_panel:
-            self.center_panel.add_message(display_content, is_sender, time_str=time_str)
+            self.center_panel.add_message(
+                display_content, 
+                is_sender, 
+                time_str=time_str,
+                file_name=file_name,
+                file_data=file_data,
+                msg_type=msg_type,
+                local_file_path=local_file_path,
+            )
 
     def _on_chat_selected(self, chat_id: str, chat_name: str):
         pass
