@@ -259,6 +259,8 @@ class MessageRouter:
         Add a friend directly by IP and port without discovery.
         Returns (success, peer_id or error_message)
         """
+        print(f"[Add Peer] Request to add peer at {ip}:{port} with name '{display_name}'")
+        print(f"[Add Peer] My peer_id={self.peer_id}, my name={self.display_name}")
         log.info(f"[Add Peer] Request to add peer at {ip}:{port} with name '{display_name}'")
         log.info(f"[Add Peer] My peer_id={self.peer_id}, my name={self.display_name}")
         
@@ -286,30 +288,41 @@ class MessageRouter:
         
         if self.data_manager:
             self.data_manager.update_peer(peer_info)
+            print(f"[Add Peer] Added peer {display_name} ({temp_peer_id[:8]}) at {ip}:{port}")
             log.info("Added peer %s (%s) at %s:%s", display_name, temp_peer_id, ip, port)
         
         # Send HELLO handshake to verify peer exists and get peer info
         try:
+            print(f"[Add Peer] Creating HELLO message to send to {ip}:{port}")
             hello_msg = Message.create_hello(
                 sender_id=self.peer_id,
                 sender_name=self.display_name or "Unknown",
                 receiver_id=temp_peer_id,
                 tcp_port=self.tcp_port
             )
+            print(f"[Add Peer] Sending HELLO to {ip}:{port}...")
             success = self.peer_client.send(ip, port, hello_msg)
             if success:
+                print(f"[Add Peer] ✓ Sent HELLO handshake to {ip}:{port}")
                 log.info("Sent HELLO handshake to %s:%s", ip, port)
             else:
+                print(f"[Add Peer] ✗ Failed to send HELLO to {ip}:{port} (peer may be offline)")
                 log.warning("Failed to send HELLO to %s:%s (peer may be offline)", ip, port)
         except Exception as e:
+            print(f"[Add Peer] ✗ Error sending HELLO to {ip}:{port}: {e}")
+            import traceback
+            traceback.print_exc()
             log.warning("Error sending HELLO to %s:%s: %s", ip, port, e)
         
         if self._on_peer_callback:
             try:
+                print(f"[Add Peer] Calling _on_peer_callback for {display_name}")
                 self._on_peer_callback(peer_info)
             except Exception as e:
+                print(f"[Add Peer] Error in _on_peer_callback: {e}")
                 log.error("Error in _on_peer_callback for new peer: %s", e, exc_info=True)
         
+        print(f"[Add Peer] Returning success=True, peer_id={temp_peer_id[:8]}...")
         return True, temp_peer_id
     
     def set_friend_request_callback(self, callback: Optional[Callable[[str, str], None]]):
