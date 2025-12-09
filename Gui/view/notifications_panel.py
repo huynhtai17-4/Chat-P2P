@@ -26,7 +26,7 @@ class NotificationItem(QFrame):
         layout.addLayout(text_layout, 1)
 
 class NotificationsPanel(QFrame):
-    add_friend_requested = Signal(str, int)  # ip, port
+    add_friend_requested = Signal(str, int)  # Signal(ip: str, port: int)
     
     def __init__(self):
         super().__init__()
@@ -182,9 +182,10 @@ class NotificationsPanel(QFrame):
         
         print(f"[NotificationsPanel] About to emit signal with: IP={ip} (type={type(ip)}), Port={port} (type={type(port)})")
         print(f"[NotificationsPanel] Signal object: {self.add_friend_requested}")
+        print(f"[NotificationsPanel] Calling emit({repr(ip)}, {repr(port)})")
         try:
-            self.add_friend_requested.emit(ip, port)
-            print(f"[NotificationsPanel] Signal emitted successfully")
+            result = self.add_friend_requested.emit(ip, port)
+            print(f"[NotificationsPanel] Signal emitted successfully, result={result}")
         except Exception as e:
             print(f"[NotificationsPanel] ERROR emitting signal: {e}")
             import traceback

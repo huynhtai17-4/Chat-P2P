@@ -27,6 +27,7 @@ class MainWindow(QMainWindow):
         self._active_request_dialogs = {}
 
         self.controller = MainWindowController(self.username, self.user_name, self.tcp_port)
+        self.controller.setParent(self)  # Set parent to ensure proper Qt ownership
         self._setup_ui()
         self._setup_controller_signals()
         self._setup_component_signals()
@@ -92,8 +93,14 @@ class MainWindow(QMainWindow):
 
         # Connect Add Friend by IP from right sidebar
         print("[MainWindow] Connecting add_friend_requested signal to controller.add_friend_by_ip")
-        self.right_sidebar.add_friend_requested.connect(self.controller.add_friend_by_ip)
-        print(f"[MainWindow] Signal connected: {self.right_sidebar.add_friend_requested} -> {self.controller.add_friend_by_ip}")
+        
+        # Create a wrapper method to ensure signal is caught
+        def _add_friend_wrapper(ip: str, port: int):
+            print(f"[MainWindow] _add_friend_wrapper called: IP={ip}, Port={port}")
+            self.controller.add_friend_by_ip(ip, port)
+        
+        self.right_sidebar.add_friend_requested.connect(_add_friend_wrapper)
+        print(f"[MainWindow] Signal connected to wrapper: {self.right_sidebar.add_friend_requested} -> _add_friend_wrapper")
         
         # Connect peer status update callbacks
         self.controller._update_peer_status_callback = self._update_peer_status_in_list
