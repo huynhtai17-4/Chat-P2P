@@ -61,6 +61,7 @@ class ChatCore:
 
         self.router = MessageRouter()
         self.peer_id = self.router.peer_id
+        self.local_ip = "127.0.0.1"
         self._running = False
 
     def start(self):
@@ -69,8 +70,6 @@ class ChatCore:
             return
         
         self.router.set_peer_callback(self._handle_peer_update)
-        self.router.set_temp_peer_callback(self._handle_temp_peer_update)
-        self.router.set_temp_peer_removed_callback(self._handle_temp_peer_removed)
         self.router.set_friend_request_callback(self._handle_friend_request)
         self.router.set_friend_accepted_callback(self._handle_friend_accepted)
         self.router.set_friend_rejected_callback(self._handle_friend_rejected)
@@ -80,8 +79,14 @@ class ChatCore:
         self.peer_id = self.router.peer_id
         self.tcp_port = self.router.tcp_port
         
+        # Get LAN IP for display and connection
+        from Core.utils.network_mode import get_local_ip
+        self.local_ip = get_local_ip()
+        log.info("Local IP: %s", self.local_ip)
+        
         self._running = True
-        log.info("ChatCore started successfully (peer_id: %s, tcp_port: %s)", self.peer_id, self.tcp_port)
+        log.info("ChatCore started successfully (peer_id: %s, tcp_port: %s, local_ip: %s)", 
+                self.peer_id, self.tcp_port, self.local_ip)
 
     def stop(self):
         if not self._running:
@@ -106,21 +111,12 @@ class ChatCore:
         return [self._message_to_dict(msg) for msg in history]
     
     def add_peer(self, peer_id: str) -> bool:
-        
-        return self.router.add_peer(peer_id)
+        # Legacy method - no longer used with Add Friend by IP
+        return False
     
-    def get_temp_discovered_peers(self) -> List[Dict]:
-        
-        peers = self.router.get_temp_discovered_peers()
-        return [self._peer_to_dict(peer) for peer in peers]
-    
-    def remove_temp_peer(self, peer_id: str) -> bool:
-        
-        return self.router.remove_temp_peer(peer_id)
-    
-    def set_temp_peer_update_callback(self, callback: Optional[Callable[[Dict], None]]):
-        
-        self._on_temp_peer_update = callback
+    def add_peer_by_ip(self, ip: str, port: int, display_name: str = "Unknown") -> Tuple[bool, Optional[str]]:
+        """Add a friend directly by IP and port"""
+        return self.router.add_peer_by_ip(ip, port, display_name)
     
     def set_friend_request_callback(self, callback: Optional[Callable[[str, str], None]]):
         
@@ -147,8 +143,8 @@ class ChatCore:
         return self.router.send_friend_reject(peer_id)
     
     def cleanup_offline_peers(self, max_offline_time: float = 600.0) -> int:
-        
-        return self.router.cleanup_offline_peers(max_offline_time)
+        # Offline cleanup removed - status is runtime-only based on ONLINE/OFFLINE events
+        return 0
 
     def _handle_router_message(self, message: Message):
         
@@ -163,15 +159,6 @@ class ChatCore:
         
         peer_dict = self._peer_to_dict(peer_info)
         self.signals.peer_updated.emit(peer_dict)
-    
-    def _handle_temp_peer_update(self, peer_info: PeerInfo):
-        
-        peer_dict = self._peer_to_dict(peer_info)
-        self.signals.temp_peer_updated.emit(peer_dict)
-    
-    def _handle_temp_peer_removed(self, peer_id: str):
-        
-        self.signals.temp_peer_removed.emit(peer_id)
     
     def _handle_friend_request(self, peer_id: str, display_name: str):
         
@@ -191,12 +178,16 @@ class ChatCore:
             "display_name": peer.display_name,
             "ip": peer.ip,
             "tcp_port": peer.tcp_port,
-            "last_seen": peer.last_seen,
             "status": peer.status,
         }
 
     def _message_to_dict(self, message: Message) -> Dict:
-        peer_id = message.receiver_id if message.sender_id == self.peer_id else message.sender_id
+        # Determine if this message was sent by the local peer
+        is_sender = bool(self.peer_id and message.sender_id == self.peer_id)
+        
+        # Determine the peer_id (the other peer in the conversation)
+        peer_id = message.receiver_id if is_sender else message.sender_id
+        
         local_file_path = None
 
         try:
@@ -225,7 +216,7 @@ class ChatCore:
             "timestamp": message.timestamp,
             "time_str": _format_time(message.timestamp),
             "date_str": _format_date(message.timestamp),
-            "is_sender": message.sender_id == self.peer_id,
+            "is_sender": is_sender,
             "msg_type": message.msg_type,
             "file_name": getattr(message, 'file_name', None),
             "file_data": getattr(message, 'file_data', None),

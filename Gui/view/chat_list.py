@@ -159,6 +159,16 @@ class ChatList(QFrame):
             self.chat_list_widget.setItemWidget(list_item, chat_item_widget)
 
         self.controller._cache_all_chat_items()
+    
+    def update_peer_status(self, peer_id: str, is_online: bool):
+        """Update online status for a specific peer in the chat list"""
+        for i in range(self.chat_list_widget.count()):
+            item = self.chat_list_widget.item(i)
+            if item:
+                widget = self.chat_list_widget.itemWidget(item)
+                if widget and hasattr(widget, 'peer_id') and widget.peer_id == peer_id:
+                    widget.set_online_status(is_online)
+                    break
 
     def get_controller(self):
         return self.controller

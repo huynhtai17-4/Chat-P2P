@@ -36,9 +36,18 @@ class ChatItemWidget(QFrame):
         avatar_layout.setContentsMargins(0, 0, 0, 0)
         avatar_layout.setSpacing(0)
         
-        avatar = QLabel()
-        avatar.setObjectName("AvatarLabel")
-        avatar_layout.addWidget(avatar)
+        self.avatar = QLabel()
+        self.avatar.setObjectName("AvatarLabel")
+        self.avatar.setFixedSize(40, 40)
+        # Load default avatar
+        from ..utils.avatar import load_circular_pixmap
+        import os
+        default_avatar_path = "Gui/assets/images/avatar1.jpg"
+        if os.path.exists(default_avatar_path):
+            pixmap = load_circular_pixmap(default_avatar_path, size=40)
+            self.avatar.setPixmap(pixmap)
+        self.avatar.setScaledContents(True)
+        avatar_layout.addWidget(self.avatar)
         
         self.online_indicator = QLabel()
         self.online_indicator.setObjectName("OnlineIndicator")
@@ -108,3 +117,18 @@ class ChatItemWidget(QFrame):
         self.is_online = is_online
         if hasattr(self, 'online_indicator'):
             self.online_indicator.setVisible(is_online)
+    
+    def set_avatar(self, avatar_path: str = None):
+        """Set avatar for this chat item"""
+        from ..utils.avatar import load_circular_pixmap
+        import os
+        
+        if avatar_path and os.path.exists(avatar_path):
+            pixmap = load_circular_pixmap(avatar_path, size=40)
+        else:
+            # Use default avatar
+            default_path = "Gui/assets/images/avatar1.jpg"
+            pixmap = load_circular_pixmap(default_path, size=40)
+        
+        if hasattr(self, 'avatar'):
+            self.avatar.setPixmap(pixmap)

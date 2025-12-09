@@ -31,6 +31,10 @@ class MainWindow(QMainWindow):
         self._setup_controller_signals()
         self._setup_component_signals()
         self.controller.start()
+        
+        # Set user network info in right sidebar
+        local_ip = getattr(self.controller.chat_core, 'local_ip', '127.0.0.1')
+        self.right_sidebar.set_user_network_info(local_ip, self.tcp_port)
 
     def _setup_ui(self):
         main_widget = QWidget()
@@ -61,7 +65,6 @@ class MainWindow(QMainWindow):
 
     def _setup_controller_signals(self):
         self.controller.chat_list_updated.connect(self._on_chat_list_updated)
-        self.controller.suggestions_updated.connect(self._on_suggestions_updated)
         self.controller.message_received.connect(self._on_message_received)
         self.controller.chat_selected.connect(self._on_chat_selected)
         self.controller.show_friend_request_dialog.connect(self._show_friend_request_dialog)
@@ -84,17 +87,40 @@ class MainWindow(QMainWindow):
         self.controller.add_preview_callback = lambda name, data, is_img: self.center_panel.add_preview_item(name, data, is_img)
         self.controller.clear_preview_callback = lambda: self.center_panel.clear_preview()
 
-        self.right_sidebar.suggestion_add_requested.connect(self.controller.on_suggestion_add_requested)
-        self.right_sidebar.suggestion_chat_requested.connect(self.controller.on_suggestion_chat_requested)
+        # Connect Add Friend by IP from right sidebar
+        self.right_sidebar.add_friend_requested.connect(self.controller.add_friend_by_ip)
+        
+        # Connect peer status update callbacks
+        self.controller._update_peer_status_callback = self._update_peer_status_in_list
+        self.controller._update_header_status_callback = self._update_header_status
 
     def _on_chat_list_updated(self, conversations):
         self.left_sidebar.load_conversations(conversations)
-
-    def _on_suggestions_updated(self, suggestions):
-        self.right_sidebar.load_suggestions(suggestions)
+        # Only update header if a peer is currently selected
+        if self.controller.current_peer_id:
+            peers = self.controller.peers
+            peer_info = peers.get(self.controller.current_peer_id, {})
+            if peer_info:
+                peer_name = peer_info.get('display_name', 'Unknown')
+                is_online = peer_info.get('status', '') == 'online'
+                self.center_panel.set_peer_info(
+                    peer_name=peer_name,
+                    peer_id=self.controller.current_peer_id,
+                    is_online=is_online,
+                    avatar_path=None
+                )
+        else:
+            # No peer selected - hide header
+            self.center_panel.hide_header()
+    
+    def _update_peer_status_in_list(self, peer_id: str, is_online: bool):
+        """Update online status for a peer in the chat list without full refresh"""
+        if self.left_sidebar:
+            self.left_sidebar.update_peer_status(peer_id, is_online)
 
     def _on_message_received(self, payload):
         peer_id = payload.get("peer_id", "")
+        # Explicitly get is_sender from payload - this determines message alignment
         is_sender = payload.get("is_sender", False)
         display_content = payload.get("display_content", payload.get("content", ""))
         time_str = payload.get("time_str", "")
@@ -103,10 +129,12 @@ class MainWindow(QMainWindow):
         local_file_path = payload.get("local_file_path")
         msg_type = payload.get("msg_type", "text")
         
+        # Only display message if it's for the currently selected peer
         if peer_id == self.controller.current_peer_id and self.center_panel:
+            # Pass is_sender explicitly to ensure correct alignment
             self.center_panel.add_message(
                 display_content, 
-                is_sender, 
+                is_sender,  # True = right aligned (own message), False = left aligned (incoming)
                 time_str=time_str,
                 file_name=file_name,
                 file_data=file_data,
@@ -115,11 +143,43 @@ class MainWindow(QMainWindow):
             )
 
     def _on_chat_selected(self, chat_id: str, chat_name: str):
-        pass
+        """Update chat header when peer is selected"""
+        if chat_id and chat_name:
+            # Get peer info from controller
+            peers = self.controller.peers
+            peer_info = peers.get(chat_id, {})
+            is_online = peer_info.get('status', '') == 'online'
+            
+            # Update chat area header
+            self.center_panel.set_peer_info(
+                peer_name=chat_name,
+                peer_id=chat_id,
+                is_online=is_online,
+                avatar_path=None  # TODO: Add avatar_path to peer_info if needed
+            )
+        else:
+            self.center_panel.hide_header()
+    
+    def _update_header_status(self, peer_id: str, is_online: bool):
+        """Update header status if this peer is currently selected"""
+        if peer_id == self.controller.current_peer_id:
+            self.center_panel.set_peer_status(is_online)
 
     def _on_load_chat_history(self, peer_id: str, history: list):
         if self.center_panel:
             self.center_panel.load_chat_history(history)
+            # Ensure header is updated when loading history
+            if peer_id:
+                peers = self.controller.peers
+                peer_info = peers.get(peer_id, {})
+                peer_name = peer_info.get('display_name', 'Unknown')
+                is_online = peer_info.get('status', '') == 'online'
+                self.center_panel.set_peer_info(
+                    peer_name=peer_name,
+                    peer_id=peer_id,
+                    is_online=is_online,
+                    avatar_path=None
+                )
 
     def _show_friend_request_dialog(self, peer_id: str, display_name: str):
         if peer_id in self._active_request_dialogs:

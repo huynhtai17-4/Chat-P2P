@@ -77,6 +77,18 @@ class DataManager:
         peers[peer_info.peer_id] = peer_info
         self.save_peers(peers)
     
+    def delete_peer(self, peer_id: str):
+        """Delete a peer from storage"""
+        import logging
+        log = logging.getLogger(__name__)
+        data = self._read_json(config.PEERS_FILENAME, {})
+        if peer_id in data:
+            del data[peer_id]
+            self._write_json(config.PEERS_FILENAME, data)
+            log.info("Deleted peer %s from storage", peer_id)
+        else:
+            log.warning("Peer %s not found in storage, cannot delete", peer_id)
+    
     def remove_peer(self, peer_id: str):
         
         peers = self.load_peers()

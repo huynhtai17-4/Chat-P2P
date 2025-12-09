@@ -52,13 +52,17 @@ class Message:
         )
     
     @classmethod
-    def create_friend_request(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
-        
+    def create_friend_request(cls, sender_id: str, sender_name: str, receiver_id: str, tcp_port: int = 0) -> "Message":
+        """Create FRIEND_REQUEST message with sender's TCP port"""
+        import json
+        content_data = {
+            "tcp_port": tcp_port
+        }
         return cls.create(
             sender_id=sender_id,
             sender_name=sender_name,
             receiver_id=receiver_id,
-            content="FRIEND_REQUEST",
+            content=json.dumps(content_data),
             msg_type="FRIEND_REQUEST",
         )
     
@@ -123,4 +127,38 @@ class Message:
             receiver_id=receiver_id,
             content="OFFLINE",
             msg_type="OFFLINE",
+        )
+    
+    @classmethod
+    def create_hello(cls, sender_id: str, sender_name: str, receiver_id: str, tcp_port: int = 0) -> "Message":
+        """Create HELLO handshake message with sender's tcp_port"""
+        import json
+        content_data = {
+            "tcp_port": tcp_port
+        }
+        return cls.create(
+            sender_id=sender_id,
+            sender_name=sender_name,
+            receiver_id=receiver_id,
+            content=json.dumps(content_data),
+            msg_type="HELLO",
+        )
+    
+    @classmethod
+    def create_hello_reply(cls, sender_id: str, sender_name: str, receiver_id: str, 
+                          peer_ip: str, peer_tcp_port: int) -> "Message":
+        """Create HELLO_REPLY message with peer info"""
+        import json
+        reply_data = {
+            "peer_id": sender_id,
+            "display_name": sender_name,
+            "ip": peer_ip,
+            "tcp_port": peer_tcp_port
+        }
+        return cls.create(
+            sender_id=sender_id,
+            sender_name=sender_name,
+            receiver_id=receiver_id,
+            content=json.dumps(reply_data),
+            msg_type="HELLO_REPLY",
         )

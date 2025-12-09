@@ -157,38 +157,67 @@ def detect_network_mode() -> str:
     return NETWORK_MODE_LAN
 
 def get_local_ip(network_mode: Optional[str] = None) -> str:
-    
-    if network_mode is None:
-        network_mode = detect_network_mode()
-    
-    if network_mode == NETWORK_MODE_SINGLE:
-        return "127.0.0.1"
-    
+    """Get local IP address - prioritize private IP over public/localhost"""
     all_ips = _get_all_network_ips()
-    lan_ips = [(name, ip) for name, ip in all_ips if _is_lan_ip(ip)]
     
-    if not lan_ips:
-        log.warning("LAN mode but no valid LAN IP found, falling back to 127.0.0.1")
+    if not all_ips:
+        log.warning("No network interfaces found, falling back to 127.0.0.1")
         return "127.0.0.1"
     
-    for name, ip in lan_ips:
+    # Filter out virtual adapters and localhost
+    valid_ips = []
+    for name, ip in all_ips:
+        if not _is_virtual_adapter(ip):
+            valid_ips.append((name, ip))
+    
+    if not valid_ips:
+        log.warning("Only virtual adapters found, falling back to 127.0.0.1")
+        return "127.0.0.1"
+    
+    # Prioritize private IPs (RFC 1918)
+    # 1. 192.168.x.x (most common home/office)
+    for name, ip in valid_ips:
         if ip.startswith("192.168."):
-            log.info("Selected LAN IP: %s (%s)", ip, name)
+            log.info("Selected private IP (192.168.x.x): %s (%s)", ip, name)
             return ip
     
-    for name, ip in lan_ips:
+    # 2. 10.x.x.x
+    for name, ip in valid_ips:
         if ip.startswith("10."):
-            log.info("Selected LAN IP: %s (%s)", ip, name)
+            log.info("Selected private IP (10.x.x.x): %s (%s)", ip, name)
             return ip
     
-    for name, ip in lan_ips:
+    # 3. 172.16-31.x.x
+    for name, ip in valid_ips:
         if ip.startswith("172."):
-            log.info("Selected LAN IP: %s (%s)", ip, name)
+            try:
+                second_octet = int(ip.split('.')[1])
+                if 16 <= second_octet <= 31:
+                    log.info("Selected private IP (172.16-31.x.x): %s (%s)", ip, name)
+                    return ip
+            except (ValueError, IndexError):
+                continue
+    
+    # 4. CGNAT range 100.64.0.0/10 (Carrier-Grade NAT - RFC 6598)
+    for name, ip in valid_ips:
+        if ip.startswith("100."):
+            try:
+                second_octet = int(ip.split('.')[1])
+                if 64 <= second_octet <= 127:
+                    log.info("Selected CGNAT IP (100.64-127.x.x): %s (%s)", ip, name)
+                    return ip
+            except (ValueError, IndexError):
+                continue
+    
+    # 5. If any other non-localhost IP exists (could be public IP)
+    for name, ip in valid_ips:
+        if not ip.startswith("127."):
+            log.info("Selected IP (public or other): %s (%s)", ip, name)
             return ip
     
-    ip = lan_ips[0][1]
-    log.info("Selected LAN IP: %s (%s)", ip, lan_ips[0][0])
-    return ip
+    # Last resort: localhost
+    log.warning("No valid network IP found, falling back to 127.0.0.1 (localhost only)")
+    return "127.0.0.1"
 
 def get_broadcast_address(network_mode: Optional[str] = None) -> str:
     

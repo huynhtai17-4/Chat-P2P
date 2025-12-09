@@ -52,31 +52,63 @@ class ChatArea(QFrame):
         self._setup_controller()
 
         self.populate_messages()
+    
+    def set_peer_info(self, peer_name: str, peer_id: str = "", is_online: bool = False, avatar_path: str = None):
+        """Update chat header with peer info and show header"""
+        self.header_name.setText(peer_name)
+        
+        if is_online:
+            self.header_status.setText("Online")
+        else:
+            self.header_status.setText("Offline")
+        
+        # Load avatar
+        if avatar_path and os.path.exists(avatar_path):
+            pixmap = load_circular_pixmap(avatar_path, size=40)
+        else:
+            # Use default avatar
+            pixmap = load_circular_pixmap("Gui/assets/images/avatar1.jpg", size=40)
+        self.header_avatar.setPixmap(pixmap)
+        
+        # Show header
+        self.header_frame.setVisible(True)
+    
+    def hide_header(self):
+        """Hide chat header when no peer selected"""
+        self.header_frame.setVisible(False)
+    
+    def set_peer_status(self, is_online: bool):
+        """Update only the status text in the header"""
+        if is_online:
+            self.header_status.setText("Online")
+        else:
+            self.header_status.setText("Offline")
 
     def _create_chat_header(self):
         
-        header_frame = QFrame()
-        header_frame.setObjectName("ChatHeader")
+        self.header_frame = QFrame()
+        self.header_frame.setObjectName("ChatHeader")
+        self.header_frame.setVisible(False)  # Hidden by default until peer selected
         
-        layout = QHBoxLayout(header_frame)
+        layout = QHBoxLayout(self.header_frame)
         layout.setSpacing(10)
         layout.setContentsMargins(10, 5, 10, 5)
 
-        avatar = QLabel()
-        avatar.setObjectName("AvatarLabel")
-        avatar.setFixedSize(40, 40)
-        avatar.setPixmap(load_circular_pixmap("Gui/assets/images/avatar.jpg", size=40))
-        avatar.setAlignment(Qt.AlignCenter)
-        avatar.setScaledContents(True)
+        self.header_avatar = QLabel()
+        self.header_avatar.setObjectName("AvatarLabel")
+        self.header_avatar.setFixedSize(40, 40)
+        self.header_avatar.setPixmap(load_circular_pixmap("Gui/assets/images/avatar1.jpg", size=40))
+        self.header_avatar.setAlignment(Qt.AlignCenter)
+        self.header_avatar.setScaledContents(True)
 
         text_layout = QVBoxLayout()
         text_layout.setSpacing(0)
-        name = QLabel("Kirti Yadav")
-        name.setObjectName("NameLabel")
-        status = QLabel("Last seen 3 hours ago")
-        status.setObjectName("MessageLabel")
-        text_layout.addWidget(name)
-        text_layout.addWidget(status)
+        self.header_name = QLabel("No chat selected")
+        self.header_name.setObjectName("NameLabel")
+        self.header_status = QLabel("")
+        self.header_status.setObjectName("MessageLabel")
+        text_layout.addWidget(self.header_name)
+        text_layout.addWidget(self.header_status)
 
         icons_layout = QHBoxLayout()
         icons_layout.setSpacing(15)
@@ -103,12 +135,12 @@ class ChatArea(QFrame):
         icons_layout.addWidget(self.video_icon)
         icons_layout.addWidget(self.more_icon)
 
-        layout.addWidget(avatar)
+        layout.addWidget(self.header_avatar)
         layout.addLayout(text_layout)
         layout.addStretch()
         layout.addLayout(icons_layout)
 
-        return header_frame
+        return self.header_frame
 
     def _create_input_bar(self):
         
@@ -180,6 +212,20 @@ class ChatArea(QFrame):
         self.controller.set_send_button(self.send_button)
 
     def add_message(self, text, is_sender, add_to_top=False, time_str=None, file_name=None, file_data=None, msg_type="text", local_file_path=None):
+        """
+        Add a message to the chat area.
+        
+        Args:
+            text: Message content
+            is_sender: True if message was sent by local user (right aligned), False if received (left aligned)
+            time_str: Timestamp string
+            file_name: File name if message contains a file
+            file_data: Base64 encoded file data
+            msg_type: Message type ("text", "image", "file", etc.)
+            local_file_path: Local path to saved file
+        """
+        # Ensure is_sender is a boolean
+        is_sender = bool(is_sender)
         
         bubble = MessageBubble(
             text,
@@ -198,9 +244,11 @@ class ChatArea(QFrame):
         row_layout.setSpacing(10)
         
         if is_sender:
+            # Own message: align to right, no avatar
             row_layout.addStretch() 
             row_layout.addWidget(bubble_widget, 0, Qt.AlignTop | Qt.AlignRight)
         else:
+            # Incoming message: align to left, show avatar
             avatar_label = QLabel()
             avatar_label.setObjectName("ChatAvatarLabel")
             avatar_label.setFixedSize(36, 36)
@@ -243,7 +291,8 @@ class ChatArea(QFrame):
                 self.add_date_separator(msg_date)
                 current_date = msg_date
             
-            is_sender = msg.get('is_sender', False)
+            # Explicitly get is_sender - determines if message is from local user
+            is_sender = bool(msg.get('is_sender', False))
             content = msg.get('content', '')
             time_str = msg.get('time_str', None)
             file_name = msg.get('file_name')
@@ -252,7 +301,7 @@ class ChatArea(QFrame):
             local_file_path = msg.get('local_file_path')
             self.add_message(
                 content,
-                is_sender,
+                is_sender,  # True = own message (right), False = incoming (left)
                 time_str=time_str,
                 file_name=file_name,
                 file_data=file_data,

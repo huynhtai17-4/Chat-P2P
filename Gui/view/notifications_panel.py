@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QWidget
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QWidget, QLineEdit
 from PySide6.QtCore import Qt, Signal
 
 class NotificationItem(QFrame):
@@ -25,105 +25,37 @@ class NotificationItem(QFrame):
         layout.addWidget(avatar)
         layout.addLayout(text_layout, 1)
 
-class SuggestionItem(QFrame):
-    add_requested = Signal(str, str)  # peer_id, peer_name
-    chat_requested = Signal(str, str)  # peer_id, peer_name
-    
-    def __init__(self, name, status_text="Online", peer_id=None, is_added=False):
-        super().__init__()
-        self.peer_id = peer_id
-        self.peer_name = name
-        self.is_added = is_added
-        
-        self.setObjectName("SuggestionItem")
-        self.setVisible(True)
-        
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 5, 0, 5)
-        layout.setSpacing(10)
-        
-        avatar_container = QFrame()
-        avatar_container.setObjectName("AvatarContainer")
-        avatar_layout = QVBoxLayout(avatar_container)
-        avatar_layout.setContentsMargins(0, 0, 0, 0)
-        avatar_layout.setSpacing(0)
-        
-        avatar = QLabel()
-        avatar.setObjectName("NotificationAvatar")
-        avatar_layout.addWidget(avatar)
-        
-        self.online_indicator = QLabel()
-        self.online_indicator.setObjectName("OnlineIndicator")
-        self.online_indicator.setFixedSize(12, 12)
-        is_online = status_text.lower() == "online"
-        self.online_indicator.setVisible(is_online)
-        avatar_layout.addWidget(self.online_indicator, 0, Qt.AlignRight | Qt.AlignBottom)
-        
-        text_layout = QVBoxLayout()
-        text_layout.setSpacing(2)
-        
-        txt = f"<b>@{name}</b>"
-        label = QLabel(txt)
-        label.setWordWrap(False)
-        label.setTextFormat(Qt.RichText)
-        label.setStyleSheet("font-size: 13px; color: #555;")
-        
-        status_label = QLabel(status_text)
-        if is_online:
-            status_label.setStyleSheet("color: #4CAF50; font-size: 11px;")  # Green for online
-        else:
-            status_label.setStyleSheet("color: #999; font-size: 11px;")  # Gray for offline
-        
-        text_layout.addWidget(label)
-        text_layout.addWidget(status_label)
-        
-        layout.addWidget(avatar_container)
-        layout.addLayout(text_layout, 1)
-        
-        if not is_added:
-            self.add_button = QPushButton("Add")
-            self.add_button.setObjectName("AddButton")
-            self.add_button.setFixedSize(60, 30)
-            def on_add_clicked(checked):
-                self.add_requested.emit(self.peer_id, self.peer_name)
-            self.add_button.clicked.connect(on_add_clicked)
-            layout.addWidget(self.add_button)
-        else:
-            self.setCursor(Qt.PointingHandCursor)
-    
-    def mousePressEvent(self, event):
-        
-        if self.is_added and event.button() == Qt.LeftButton:
-            self.chat_requested.emit(self.peer_id, self.peer_name)
-        super().mousePressEvent(event)
-
 class NotificationsPanel(QFrame):
-    suggestion_add_requested = Signal(str, str)  # peer_id, peer_name
-    suggestion_chat_requested = Signal(str, str)  # peer_id, peer_name
+    add_friend_requested = Signal(str, int)  # ip, port
     
     def __init__(self):
         super().__init__()
-        self.setObjectName("RightSidebar") # Đổi tên ID để QSS áp dụng
+        self.setObjectName("RightSidebar")
         self.setMinimumWidth(240)
         self.setMaximumWidth(450)
         self.setMinimumHeight(500)
         
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 15, 15, 15)
-        layout.setSpacing(10)
+        # Main layout - vertical
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(0, 15, 15, 15)
+        main_layout.setSpacing(10)
 
+        # 1) Notifications Header
         notify_header = QLabel("Notifications")
         notify_header.setObjectName("SidebarHeader")
-        layout.addWidget(notify_header)
+        main_layout.addWidget(notify_header)
 
+        # 2) Notifications ScrollArea (only contains notifications)
         notification_scroll = QScrollArea()
         notification_scroll.setObjectName("SidebarScrollArea")
         notification_scroll.setWidgetResizable(True)
-        notification_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded) # Bật cuộn ngang
+        notification_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        notification_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
 
         notification_content = QWidget()
         notification_content.setObjectName("SidebarScrollContent")
-        notification_layout = QVBoxLayout(notification_content) # Layout cho nội dung
+        notification_layout = QVBoxLayout(notification_content)
+        notification_layout.setContentsMargins(0, 0, 0, 0)
         notification_layout.setSpacing(10)
         
         notifications = [
@@ -140,127 +72,117 @@ class NotificationsPanel(QFrame):
         for username, text, time_ago in notifications:
             notification_layout.addWidget(NotificationItem(username, text, time_ago))
         
-        notification_layout.addStretch() # Đẩy item lên trên
-        notification_scroll.setWidget(notification_content) # Gắn content vào scroll
+        notification_layout.addStretch()
+        notification_scroll.setWidget(notification_content)
         
-        layout.addWidget(notification_scroll, 1) # 1 = co giãn 50%
+        # Add scroll area with stretch factor so it takes available space
+        main_layout.addWidget(notification_scroll, 1)
 
-        sugg_title = QLabel("Suggestions")
-        sugg_title.setObjectName("SidebarHeader")
-        layout.addWidget(sugg_title) # Thêm header vào layout chính
+        # 3) Section Divider (spacing)
+        main_layout.addSpacing(10)
 
-        suggestion_scroll = QScrollArea()
-        suggestion_scroll.setObjectName("SidebarScrollArea")
-        suggestion_scroll.setWidgetResizable(True)
-        suggestion_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded) # Bật cuộn ngang
-
-        suggestion_content = QWidget()
-        suggestion_content.setObjectName("SidebarScrollContent")
-        suggestion_layout = QVBoxLayout(suggestion_content) # Layout cho nội dung
-        suggestion_layout.setSpacing(10)
-
-        self.suggestion_layout = suggestion_layout
-        self.suggestion_content = suggestion_content
+        # 4) User Network Info (Your IPs/Port)
+        network_info_container = QWidget()
+        network_info_layout = QVBoxLayout(network_info_container)
+        network_info_layout.setContentsMargins(0, 0, 0, 0)
+        network_info_layout.setSpacing(3)
         
-        self.suggestions = []
-
-        suggestion_scroll.setWidget(suggestion_content) # Gắn content vào scroll
+        # Localhost IP (for same machine)
+        self.localhost_label = QLabel("Localhost: 127.0.0.1")
+        self.localhost_label.setStyleSheet("font-size: 11px; color: #999;")
+        network_info_layout.addWidget(self.localhost_label)
         
-        suggestion_content.setVisible(True)
-        suggestion_scroll.setVisible(True)
-
-        layout.addWidget(suggestion_scroll, 1)  # 1 = co giãn 50%
+        # LAN IP (for network)
+        self.lan_ip_label = QLabel("LAN IP: --")
+        self.lan_ip_label.setStyleSheet("font-size: 12px; color: #2196F3; font-weight: bold;")
+        network_info_layout.addWidget(self.lan_ip_label)
         
-        self.suggestion_scroll = suggestion_scroll
+        # Port
+        self.port_label = QLabel("Your Port: --")
+        self.port_label.setStyleSheet("font-size: 12px; color: #2196F3; font-weight: bold;")
+        network_info_layout.addWidget(self.port_label)
+        
+        main_layout.addWidget(network_info_container)
+        main_layout.addSpacing(10)
+
+        # 5) Add Friend by IP Header
+        add_friend_title = QLabel("Add Friend by IP")
+        add_friend_title.setObjectName("SidebarHeader")
+        main_layout.addWidget(add_friend_title)
+
+        # 6-8) Add Friend Form (IP Input, Port Input, Button)
+        # Create container widget for Add Friend section
+        add_friend_container = QWidget()
+        add_friend_layout = QVBoxLayout(add_friend_container)
+        add_friend_layout.setContentsMargins(0, 0, 0, 0)
+        add_friend_layout.setSpacing(8)
+
+        peer_ip_label = QLabel("Peer IP:")
+        peer_ip_label.setStyleSheet("font-size: 12px; color: #555;")
+        add_friend_layout.addWidget(peer_ip_label)
+
+        self.ip_input = QLineEdit()
+        self.ip_input.setPlaceholderText("e.g., 192.168.1.10")
+        self.ip_input.setObjectName("AddFriendInput")
+        add_friend_layout.addWidget(self.ip_input)
+
+        peer_port_label = QLabel("Port:")
+        peer_port_label.setStyleSheet("font-size: 12px; color: #555;")
+        add_friend_layout.addWidget(peer_port_label)
+
+        self.port_input = QLineEdit()
+        self.port_input.setPlaceholderText("55000-55199")
+        self.port_input.setObjectName("AddFriendInput")
+        add_friend_layout.addWidget(self.port_input)
+
+        add_friend_btn = QPushButton("Add Friend")
+        add_friend_btn.setObjectName("AddFriendButton")
+        add_friend_btn.setFixedHeight(35)
+        add_friend_btn.clicked.connect(self._on_add_friend_clicked)
+        add_friend_layout.addWidget(add_friend_btn)
+
+        # Add container to main layout (no stretch - fixed at bottom)
+        main_layout.addWidget(add_friend_container)
     
-    def load_suggestions(self, suggestions: list):
+    def set_user_network_info(self, lan_ip: str, port: int):
+        """Set the user's network info display."""
+        # Always show localhost
+        self.localhost_label.setText("Localhost: 127.0.0.1")
         
-        current_peer_ids = {getattr(w, 'peer_id', None) for w in self.suggestions if hasattr(w, 'peer_id')}
-        new_peer_ids = {peer.get('peer_id', '') for peer in suggestions if peer.get('peer_id')}
+        # Show LAN IP
+        if lan_ip == "127.0.0.1":
+            self.lan_ip_label.setText("LAN IP: Not available (no network)")
+            self.lan_ip_label.setStyleSheet("font-size: 11px; color: #999;")
+        else:
+            self.lan_ip_label.setText(f"LAN IP: {lan_ip}")
+            self.lan_ip_label.setStyleSheet("font-size: 12px; color: #2196F3; font-weight: bold;")
         
-        if current_peer_ids == new_peer_ids and len(suggestions) == len(self.suggestions) and len(suggestions) > 0:
+        # Show port
+        self.port_label.setText(f"Port: {port}")
+    
+    def _on_add_friend_clicked(self):
+        """Handle Add Friend button click"""
+        ip = self.ip_input.text().strip()
+        port_str = self.port_input.text().strip()
+        
+        print(f"[NotificationsPanel] Add Friend clicked: IP={ip}, Port={port_str}")
+        
+        if not ip:
+            print("[NotificationsPanel] IP is empty, returning")
             return
         
-        while self.suggestion_layout.count() > 0:
-            item = self.suggestion_layout.takeAt(0)
-            if item:
-                widget = item.widget()
-                if widget:
-                    widget.setParent(None)
-                    widget.deleteLater()
-
-        self.suggestions = []
-
-        for peer in suggestions:
-            peer_id = peer.get('peer_id', '')
-            peer_name = peer.get('name', 'Unknown')
-            status_text = peer.get('status_text', 'Online')
-
-            is_added = peer.get('is_added', False)
-            
-            suggestion_item = SuggestionItem(
-                name=peer_name,
-                status_text=status_text,
-                peer_id=peer_id,
-                is_added=is_added
-            )
-            suggestion_item.setVisible(True)
-            suggestion_item.setObjectName("SuggestionItem")
-            
-            if not is_added:
-                suggestion_item.add_requested.connect(self._on_suggestion_add_requested)
-            else:
-                suggestion_item.chat_requested.connect(self._on_suggestion_chat_requested)
-
-            self.suggestion_layout.addWidget(suggestion_item)
-            self.suggestions.append(suggestion_item)
-
-        self.suggestion_layout.addStretch()
-        self.suggestion_content.setVisible(True)
-        self.suggestion_scroll.setVisible(True)
-        self.suggestion_layout.update()
-    
-    def _on_suggestion_add_requested(self, peer_id: str, peer_name: str):
-        
-        self.suggestion_add_requested.emit(peer_id, peer_name)
-    
-    def _on_suggestion_chat_requested(self, peer_id: str, peer_name: str):
-        
-        self.suggestion_chat_requested.emit(peer_id, peer_name)
-    
-    def remove_suggestion(self, peer_id: str):
-        
-        if not peer_id:
+        try:
+            port = int(port_str)
+            if port < 1 or port > 65535:
+                print(f"[NotificationsPanel] Port {port} out of range, returning")
+                return
+        except ValueError:
+            print(f"[NotificationsPanel] Invalid port value: {port_str}")
             return
         
-        item_to_remove = None
-        widget_to_remove = None
+        print(f"[NotificationsPanel] Emitting add_friend_requested signal: {ip}:{port}")
+        self.add_friend_requested.emit(ip, port)
         
-        for widget in self.suggestions:
-            if hasattr(widget, 'peer_id') and widget.peer_id == peer_id:
-                widget_to_remove = widget
-                break
-        
-        if widget_to_remove:
-            for i in range(self.suggestion_layout.count()):
-                item = self.suggestion_layout.itemAt(i)
-                if item and item.widget() == widget_to_remove:
-                    item_to_remove = item
-                    break
-        
-        if not item_to_remove:
-            for i in range(self.suggestion_layout.count()):
-                item = self.suggestion_layout.itemAt(i)
-                if item and item.widget():
-                    widget = item.widget()
-                    if hasattr(widget, 'peer_id') and str(widget.peer_id) == str(peer_id):
-                        item_to_remove = item
-                        widget_to_remove = widget
-                        break
-        
-        if item_to_remove and widget_to_remove:
-            self.suggestion_layout.removeItem(item_to_remove)
-            if widget_to_remove in self.suggestions:
-                self.suggestions.remove(widget_to_remove)
-            widget_to_remove.setParent(None)
-            widget_to_remove.deleteLater()
+        # Clear inputs after adding
+        self.ip_input.clear()
+        self.port_input.clear()

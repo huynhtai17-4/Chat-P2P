@@ -14,7 +14,7 @@ class StatusBroadcaster:
     def broadcast_status(self, status: str):
         
         if not self.router.peer_listener or not self.router.peer_listener._thread or not self.router.peer_listener._thread.is_alive():
-            log.debug("PeerListener not running, skipping status broadcast")
+            log.warning("[STATUS] PeerListener not running, skipping status broadcast")
             return
         
         if status not in ("online", "offline"):
@@ -26,10 +26,13 @@ class StatusBroadcaster:
         with self.router._lock:
             friends = list(self.router._peers.values())
         
+        log.info("[STATUS] Broadcasting %s to %s friends", status.upper(), len(friends))
+        
         sent_count = 0
         for peer in friends:
             if not peer.ip or not peer.tcp_port or peer.tcp_port == 0:
-                log.debug("Skipping status broadcast to %s: invalid IP/port", peer.peer_id)
+                log.warning("[STATUS] Skipping %s to %s: invalid IP=%s or port=%s", 
+                          status, peer.display_name, peer.ip, peer.tcp_port)
                 continue
             
             try:
@@ -49,10 +52,10 @@ class StatusBroadcaster:
                 success = self.router.peer_client.send(peer.ip, peer.tcp_port, message)
                 if success:
                     sent_count += 1
-                    log.debug("Sent %s status to %s (%s)", status, peer.display_name, peer.peer_id)
+                    log.info("[STATUS] ✓ Sent %s to %s", status.upper(), peer.display_name)
                 else:
-                    log.debug("Failed to send %s status to %s (%s)", status, peer.display_name, peer.peer_id)
+                    log.debug("[STATUS] Failed to send %s to %s (peer may be offline)", status.upper(), peer.display_name)
             except Exception as e:
-                log.warning("Error sending %s status to %s: %s", status, peer.peer_id, e)
+                log.error("[STATUS] Error sending %s to %s: %s", status, peer.peer_id, e)
         
-        log.info("Broadcasted %s status to %s/%s friends", status, sent_count, len(friends))
+        log.info("[STATUS] Broadcast complete: %s/%s sent successfully", sent_count, len(friends))

@@ -16,7 +16,6 @@ log = logging.getLogger(__name__)
 class MainWindowController(QObject):
     
     chat_list_updated = Signal(list)
-    suggestions_updated = Signal(list)
     message_received = Signal(dict)
     chat_selected = Signal(str, str)
     show_friend_request_dialog = Signal(str, str)
@@ -43,8 +42,6 @@ class MainWindowController(QObject):
         
         self.chat_core.signals.message_received.connect(self._on_message_received_signal)
         self.chat_core.signals.peer_updated.connect(self._on_peer_updated_signal)
-        self.chat_core.signals.temp_peer_updated.connect(self._on_temp_peer_updated_signal)
-        self.chat_core.signals.temp_peer_removed.connect(self._on_temp_peer_removed_signal)
         self.chat_core.signals.friend_request_received.connect(self._on_friend_request_received_signal)
         self.chat_core.signals.friend_accepted.connect(self._on_friend_accepted_signal)
         self.chat_core.signals.friend_rejected.connect(self._on_friend_rejected_signal)
@@ -57,10 +54,7 @@ class MainWindowController(QObject):
         self.pending_friend_requests: Dict[str, str] = {}
         self._active_request_dialogs: Dict[str, QDialog] = {}
         
-        self._suggestions_debounce_timer = None
-        self._suggestions_pending_refresh = False
         self._peer_refresh_timer = None
-        self._cleanup_timer = None
     
     def start(self, parent_widget=None):
         try:
@@ -69,44 +63,23 @@ class MainWindowController(QObject):
             self.show_message_box.emit("error", "ChatCore Error", f"Failed to start chat core: {exc}")
             raise
         
-        self._suggestions_debounce_timer = QTimer()
-        self._suggestions_debounce_timer.setSingleShot(True)
-        self._suggestions_debounce_timer.setInterval(2000)
-        self._suggestions_debounce_timer.timeout.connect(lambda: self._refresh_suggestions(debounced=True))
-        self._suggestions_pending_refresh = False
-        
         self._update_peers_from_core()
         self._refresh_chat_list()
-        self._refresh_suggestions()
         
         self._peer_refresh_timer = QTimer()
         self._peer_refresh_timer.setInterval(5000)
-        self._peer_refresh_timer.timeout.connect(self._refresh_peers_and_suggestions)
+        self._peer_refresh_timer.timeout.connect(self._update_peers_from_core)
         self._peer_refresh_timer.start()
-        
-        self._cleanup_timer = QTimer()
-        self._cleanup_timer.setInterval(300000)
-        self._cleanup_timer.timeout.connect(self._cleanup_offline_peers)
-        self._cleanup_timer.start()
     
     def stop(self):
         if self._peer_refresh_timer:
             self._peer_refresh_timer.stop()
-        if self._cleanup_timer:
-            self._cleanup_timer.stop()
-        if self._suggestions_debounce_timer:
-            self._suggestions_debounce_timer.stop()
         self.chat_core.stop()
-    
-    def _refresh_peers_and_suggestions(self):
-        self._update_peers_from_core()
-        self._refresh_suggestions(debounced=True)
     
     def _update_peers_from_core(self):
         peers = self.chat_core.get_known_peers()
         self.peers = {peer["peer_id"]: peer for peer in peers}
         self._refresh_chat_list()
-        self._refresh_suggestions()
     
     def _get_conversations(self) -> List[Dict]:
         conversations = []
@@ -127,65 +100,11 @@ class MainWindowController(QObject):
         conversations.sort(key=lambda c: c["last_message_time"], reverse=True)
         return conversations
     
-    def _get_suggestions(self) -> List[Dict]:
-        suggestions = []
-        known_peer_ids = set(self.peers.keys())
-        
-        known_peers_from_core = self.chat_core.get_known_peers()
-        for peer in known_peers_from_core:
-            known_peer_ids.add(peer["peer_id"])
-        
-        temp_peers = self.chat_core.get_temp_discovered_peers()
-        added_peer_ids = set()
-        
-        now = time.time()
-        for peer in temp_peers:
-            peer_id = peer.get("peer_id") or peer.get("peer_id", "")
-            
-            if not peer_id:
-                continue
-            
-            if peer_id in known_peer_ids:
-                continue
-            
-            if peer_id in self.pending_friend_requests:
-                continue
-            
-            if peer_id in added_peer_ids:
-                continue
-            
-            last_seen = peer.get("last_seen", 0)
-            is_online = (now - last_seen) < 15
-            
-            # Only show online peers in suggestions
-            if not is_online:
-                continue
-            
-            suggestions.append({
-                "peer_id": peer_id,
-                "name": peer.get("display_name", "Unknown"),
-                "status_text": "Online",
-                "is_added": False,
-            })
-            added_peer_ids.add(peer_id)
-        
-        return suggestions
-    
     def _refresh_chat_list(self):
         conversations = self._get_conversations()
         self.chat_list_updated.emit(conversations)
-    
-    def _refresh_suggestions(self, debounced: bool = False):
-        if not debounced:
-            self._suggestions_pending_refresh = True
-            if self._suggestions_debounce_timer and not self._suggestions_debounce_timer.isActive():
-                self._suggestions_debounce_timer.start()
-            return
         
-        self._suggestions_pending_refresh = False
-        log.debug("Refreshing suggestions list")
-        suggestions = self._get_suggestions()
-        self.suggestions_updated.emit(suggestions)
+        # Don't auto-select first peer - let user choose
     
     def on_chat_selected(self, chat_id: str, chat_name: str):
         if not chat_id:
@@ -194,50 +113,35 @@ class MainWindowController(QObject):
         self.unread_counts[chat_id] = 0
         history = self.chat_core.get_message_history(chat_id)
         self.load_chat_history.emit(chat_id, history)
+        # Emit chat_selected signal to update header
+        self.chat_selected.emit(chat_id, chat_name)
         self._refresh_chat_list()
     
-    def on_suggestion_add_requested(self, peer_id: str, peer_name: str):
-        try:
-            log.info(f"Adding user requested for: {peer_name} ({peer_id})")
-            
-            if not peer_id:
-                self.show_message_box.emit("warning", "Friend Request", "Invalid peer ID.")
-                return
-            
-            self.pending_friend_requests[peer_id] = peer_name
-            
-            success = self.chat_core.send_friend_request(peer_id)
-            log.info(f"Friend request result for {peer_id}: {success}")
-            
-            if success:
-                self._remove_peer_from_suggestions(peer_id)
-                self._refresh_suggestions(debounced=True)
-                self.show_message_box.emit("info", "Friend Request", f"Friend request sent to {peer_name}! They will receive a notification to accept or reject.")
-            else:
-                self.pending_friend_requests.pop(peer_id, None)
-                
-                peer_info = None
-                if hasattr(self.chat_core, 'router') and hasattr(self.chat_core.router, 'temp_discovered_peers'):
-                    peer_info = self.chat_core.router.temp_discovered_peers.get(peer_id)
-                
-                error_msg = f"Failed to send friend request to {peer_name}."
-                if peer_info:
-                    error_msg += f"\nDetails: IP={peer_info.ip}, Port={peer_info.tcp_port}"
-                    if peer_info.tcp_port == 0:
-                        error_msg += "\n(Peer not fully discovered yet, please wait)"
-                
-                self.show_message_box.emit("warning", "Friend Request", f"{error_msg}\nPeer may be offline or invalid.")
-        except Exception as e:
-            import traceback
-            self.show_message_box.emit("error", "Error", f"An error occurred: {e}")
-    
-    def on_suggestion_chat_requested(self, peer_id: str, peer_name: str):
-        self.current_peer_id = peer_id
-        self.unread_counts[peer_id] = 0
-        history = self.chat_core.get_message_history(peer_id)
-        self.load_chat_history.emit(peer_id, history)
-        self._refresh_chat_list()
-        self._refresh_suggestions(debounced=True)
+    # Suggestions feature removed - no longer needed
+
+    def add_friend_by_ip(self, ip: str, port: int):
+        """Add a friend by IP address and port."""
+        ip = ip.strip() if ip else ""
+        
+        if not ip or not port:
+            self.show_message_box.emit("warning", "Add Friend", "Please enter a valid IP and port.")
+            return
+        
+        if port < 1 or port > 65535:
+            self.show_message_box.emit("warning", "Add Friend", "Port must be between 1 and 65535.")
+            return
+        
+        log.info(f"[Add Friend] Attempting to add peer at {ip}:{port}")
+        
+        success, result = self.chat_core.add_peer_by_ip(ip, port, display_name="Unknown")
+        if success:
+            log.info(f"[Add Friend] Successfully added peer at {ip}:{port}")
+            self.show_message_box.emit("info", "Add Friend", f"Added friend at {ip}:{port}")
+            self._update_peers_from_core()
+            self._refresh_chat_list()
+        else:
+            log.error(f"[Add Friend] Failed to add peer at {ip}:{port}: {result}")
+            self.show_message_box.emit("warning", "Add Friend", f"Failed to add friend: {result}")
     
     def send_message(self, message_text: str) -> bool:
         if not self.current_peer_id:
@@ -370,29 +274,30 @@ class MainWindowController(QObject):
         try:
             peer_id = peer_info.get("peer_id", "")
             if peer_id:
+                old_status = self.peers.get(peer_id, {}).get("status", "")
                 self.peers[peer_id] = peer_info
+                new_status = peer_info.get("status", "")
+                
+                # If status changed and this is the current peer, update header
+                if peer_id == self.current_peer_id and old_status != new_status:
+                    peer_name = peer_info.get("display_name", "Unknown")
+                    self.chat_selected.emit(peer_id, peer_name)
+                    # Also update header status directly
+                    is_online = new_status == "online"
+                    if hasattr(self, '_update_header_status_callback'):
+                        self._update_header_status_callback(peer_id, is_online)
+                
+                # Update chat list to reflect status change
+                # Also emit signal to update status in list immediately
+                is_online = new_status == "online"
+                if hasattr(self, '_update_peer_status_callback'):
+                    self._update_peer_status_callback(peer_id, is_online)
+                
                 self._refresh_chat_list()
         except Exception as e:
             import traceback
     
-    def _on_temp_peer_updated_signal(self, peer_info: Dict):
-        try:
-            self._refresh_suggestions(debounced=False)
-        except Exception as e:
-            import traceback
-    
-    def _on_temp_peer_removed_signal(self, peer_id: str):
-        try:
-            self._remove_peer_from_suggestions(peer_id)
-        except Exception as e:
-            import traceback
-    
-    def _remove_peer_from_suggestions(self, peer_id: str):
-        if not peer_id:
-            return
-        
-        self.chat_core.remove_temp_peer(peer_id)
-        self._refresh_suggestions(debounced=True)
+    # Temp peer signals removed - discovery feature removed
     
     def _on_friend_request_received_signal(self, peer_id: str, display_name: str):
         try:
@@ -422,7 +327,6 @@ class MainWindowController(QObject):
         if success:
             self._update_peers_from_core()
             self._refresh_chat_list()
-            self._remove_peer_from_suggestions(peer_id)
             
             self.current_peer_id = peer_id
             self.unread_counts[peer_id] = 0
@@ -445,8 +349,6 @@ class MainWindowController(QObject):
             self._update_peers_from_core()
             self._refresh_chat_list()
             
-            self._remove_peer_from_suggestions(peer_id)
-            
             peer_name = "Unknown"
             for peer in self.chat_core.get_known_peers():
                 if peer["peer_id"] == peer_id:
@@ -468,8 +370,8 @@ class MainWindowController(QObject):
     def _on_friend_rejected_signal(self, peer_id: str):
         try:
             peer_name = "Unknown"
-            temp_peers = self.chat_core.get_temp_discovered_peers()
-            for peer in temp_peers:
+            known_peers = self.chat_core.get_known_peers()
+            for peer in known_peers:
                 if peer["peer_id"] == peer_id:
                     peer_name = peer.get("display_name", "Unknown")
                     break
