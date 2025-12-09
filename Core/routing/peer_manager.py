@@ -18,7 +18,7 @@ class PeerManager:
             if peer_id in self.router._peers:
                 log.info("Peer %s already in friends list", peer_id)
                 return True
-        log.warning("add_peer called but no discovery - use add_peer_by_ip instead")
+        log.warning("add_peer called but no discovery - use add_peer_by_ip instead!")
         return False
     
     def get_known_peers(self) -> List[PeerInfo]:
