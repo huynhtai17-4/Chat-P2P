@@ -93,14 +93,8 @@ class MainWindow(QMainWindow):
 
         # Connect Add Friend by IP from right sidebar
         print("[MainWindow] Connecting add_friend_requested signal to controller.add_friend_by_ip")
-        
-        # Create a wrapper method to ensure signal is caught
-        def _add_friend_wrapper(ip: str, port: int):
-            print(f"[MainWindow] _add_friend_wrapper called: IP={ip}, Port={port}")
-            self.controller.add_friend_by_ip(ip, port)
-        
-        self.right_sidebar.add_friend_requested.connect(_add_friend_wrapper)
-        print(f"[MainWindow] Signal connected to wrapper: {self.right_sidebar.add_friend_requested} -> _add_friend_wrapper")
+        self.right_sidebar.add_friend_requested.connect(self._on_add_friend_requested)
+        print(f"[MainWindow] Signal connected to instance method: {self.right_sidebar.add_friend_requested} -> {self._on_add_friend_requested}")
         
         # Connect peer status update callbacks
         self.controller._update_peer_status_callback = self._update_peer_status_in_list
@@ -261,6 +255,14 @@ class MainWindow(QMainWindow):
         else:
             QMessageBox.information(self, title, message)
 
+    def _on_add_friend_requested(self, ip: str, port: int):
+        """Handle add friend request from notifications panel"""
+        print(f"[MainWindow] _on_add_friend_requested called: IP={ip}, Port={port}")
+        if self.controller:
+            self.controller.add_friend_by_ip(ip, port)
+        else:
+            print("[MainWindow] ERROR: controller is None!")
+    
     def closeEvent(self, event):
         self.controller.stop()
         event.accept()
