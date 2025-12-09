@@ -258,8 +258,12 @@ class MainWindow(QMainWindow):
     def _on_add_friend_requested(self, ip: str, port: int):
         """Handle add friend request from notifications panel"""
         print(f"[MainWindow] _on_add_friend_requested called: IP={ip}, Port={port}")
+        print(f"[MainWindow] Controller exists: {self.controller is not None}")
         if self.controller:
+            print(f"[MainWindow] Controller chat_core exists: {hasattr(self.controller, 'chat_core') and self.controller.chat_core is not None}")
+            print(f"[MainWindow] Calling controller.add_friend_by_ip...")
             self.controller.add_friend_by_ip(ip, port)
+            print(f"[MainWindow] controller.add_friend_by_ip returned")
         else:
             print("[MainWindow] ERROR: controller is None!")
     

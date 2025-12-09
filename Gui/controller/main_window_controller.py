@@ -127,6 +127,7 @@ class MainWindowController(QObject):
     def add_friend_by_ip(self, ip: str, port: int):
         """Add a friend by IP address and port."""
         try:
+            print(f"[Controller] add_friend_by_ip called with IP={ip}, Port={port}, Type: {type(port)}")
             log.info(f"[Controller] add_friend_by_ip called with IP={ip}, Port={port}, Type: {type(port)}")
             
             # Convert port to int if it's a string
@@ -150,9 +151,12 @@ class MainWindowController(QObject):
                 self.show_message_box.emit("warning", "Add Friend", "Port must be between 1 and 65535.")
                 return
             
+            print(f"[Controller] [Add Friend] Attempting to add peer at {ip}:{port}")
             log.info(f"[Controller] [Add Friend] Attempting to add peer at {ip}:{port}")
             
+            print(f"[Controller] Calling chat_core.add_peer_by_ip...")
             success, result = self.chat_core.add_peer_by_ip(ip, port, display_name="Unknown")
+            print(f"[Controller] add_peer_by_ip returned: success={success}, result={result}")
             if success:
                 log.info(f"[Controller] [Add Friend] Successfully added peer at {ip}:{port}")
                 self.show_message_box.emit("info", "Add Friend", f"Added friend at {ip}:{port}")
@@ -162,6 +166,9 @@ class MainWindowController(QObject):
                 log.error(f"[Controller] [Add Friend] Failed to add peer at {ip}:{port}: {result}")
                 self.show_message_box.emit("warning", "Add Friend", f"Failed to add friend: {result}")
         except Exception as e:
+            print(f"[Controller] Exception in add_friend_by_ip: {e}")
+            import traceback
+            traceback.print_exc()
             log.error(f"[Controller] Exception in add_friend_by_ip: {e}", exc_info=True)
             self.show_message_box.emit("error", "Add Friend Error", f"An error occurred: {e}")
     
