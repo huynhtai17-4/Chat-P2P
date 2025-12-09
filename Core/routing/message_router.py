@@ -193,19 +193,28 @@ class MessageRouter:
 
         with self._lock:
             target = self._peers.get(to_peer_id)
+        
+        print(f"[Router] send_message: to_peer_id={to_peer_id[:8]}, target={target}")
+        
         if not target:
+            print(f"[Router] ✗ Peer {to_peer_id[:8]} not in friends list")
             log.warning("Cannot send message to %s: Peer not in friends list", to_peer_id)
             return False, None
 
+        print(f"[Router] Target peer: name={target.display_name}, ip={target.ip}, port={target.tcp_port}, status={target.status}")
+        
         if not target.ip or not target.tcp_port:
+            print(f"[Router] ✗ Invalid IP or port: ip={target.ip}, port={target.tcp_port}")
             log.warning("Cannot send message to %s: Invalid IP (%s) or port (%s)", to_peer_id, target.ip, target.tcp_port)
             return False, None
 
         if target.ip == "0.0.0.0" or target.ip == "":
+            print(f"[Router] ✗ Invalid IP address: {target.ip}")
             log.warning("Cannot send message to %s: Invalid IP address", to_peer_id)
             return False, None
 
         if target.tcp_port == 0 or target.tcp_port < 55000 or target.tcp_port > 55199:
+            print(f"[Router] ✗ Invalid port: {target.tcp_port}")
             log.warning("Cannot send message to %s: Invalid port %s", to_peer_id, target.tcp_port)
             return False, None
 
@@ -220,8 +229,10 @@ class MessageRouter:
             audio_data=audio_data,
         )
 
+        print(f"[Router] Sending message to {target.display_name} ({to_peer_id[:8]}) at {target.ip}:{target.tcp_port}")
         log.info("Sending message to %s (%s) at %s:%s", target.display_name, to_peer_id, target.ip, target.tcp_port)
         success = self.peer_client.send(target.ip, target.tcp_port, message)
+        print(f"[Router] peer_client.send returned: {success}")
         if success:
             self._peer_send_failures.pop(to_peer_id, None)
             if self.data_manager:

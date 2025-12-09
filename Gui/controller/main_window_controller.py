@@ -207,6 +207,7 @@ class MainWindowController(QObject):
         
         if message_text:
             try:
+                print(f"[Controller] Sending text message to peer_id={self.current_peer_id[:8]}")
                 success = self.chat_core.send_message(
                     self.current_peer_id,
                     message_text,
@@ -215,17 +216,25 @@ class MainWindowController(QObject):
                     file_data=None,
                     audio_data=None
                 )
+                print(f"[Controller] send_message returned: success={success}")
                 if success:
                     success_count += 1
+                    print(f"[Controller] success_count incremented to {success_count}")
+                else:
+                    print(f"[Controller] send_message failed!")
             except Exception as e:
-                pass
+                print(f"[Controller] Exception in send_message: {e}")
+                import traceback
+                traceback.print_exc()
         
         if preview_items:
             self._preview_items = {}
             if hasattr(self, 'clear_preview_callback'):
                 self.clear_preview_callback()
         
+        print(f"[Controller] Send complete: success_count={success_count}, total_items={total_items}")
         if success_count == 0 and total_items > 0:
+            print(f"[Controller] Showing 'Failed to send' dialog")
             self.show_message_box.emit("warning", "Network error", "Failed to send message. Peer might be offline.")
         elif success_count > 0 and success_count < total_items:
             self.show_message_box.emit("warning", "Partial send", f"Sent {success_count}/{total_items} items. Some may have failed.")
