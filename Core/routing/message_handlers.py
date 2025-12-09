@@ -15,6 +15,12 @@ class MessageHandlers:
     def handle_hello(self, message: Message, sender_ip: str = "", sender_port: int = 0):
         """Handle HELLO handshake - reply with HELLO_REPLY containing our peer info"""
         log.info("[HELLO] Received from %s (%s) at %s:%s (socket)", message.sender_name, message.sender_id, sender_ip, sender_port)
+        log.info("[HELLO] My peer_id=%s, sender_id=%s", self.router.peer_id, message.sender_id)
+        
+        # Ignore HELLO from ourselves (loopback)
+        if message.sender_id == self.router.peer_id:
+            log.warning("[HELLO] Ignoring HELLO from myself (loopback)")
+            return
         
         # Extract sender's real TCP port from message content
         sender_tcp_port = 0
@@ -62,6 +68,12 @@ class MessageHandlers:
     def handle_hello_reply(self, message: Message, sender_ip: str = ""):
         """Handle HELLO_REPLY - update peer info with actual peer_id and details"""
         log.info("[HELLO_REPLY] Received from %s (%s) at %s", message.sender_name, message.sender_id, sender_ip)
+        log.info("[HELLO_REPLY] My peer_id=%s, sender_id=%s", self.router.peer_id, message.sender_id)
+        
+        # Ignore HELLO_REPLY from ourselves (loopback)
+        if message.sender_id == self.router.peer_id:
+            log.warning("[HELLO_REPLY] Ignoring HELLO_REPLY from myself (loopback)")
+            return
         
         try:
             reply_data = json.loads(message.content)

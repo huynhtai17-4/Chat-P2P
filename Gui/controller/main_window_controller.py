@@ -5,7 +5,7 @@ import os
 import base64
 import time
 
-from PySide6.QtCore import QObject, Signal, QTimer
+from PySide6.QtCore import QObject, Signal, QTimer, Slot
 from PySide6.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 
 from Core.core_api import ChatCore
@@ -123,6 +123,7 @@ class MainWindowController(QObject):
     
     # Suggestions feature removed - no longer needed
 
+    @Slot(str, int)
     def add_friend_by_ip(self, ip: str, port: int):
         """Add a friend by IP address and port."""
         try:

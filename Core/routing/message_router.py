@@ -260,6 +260,7 @@ class MessageRouter:
         Returns (success, peer_id or error_message)
         """
         log.info(f"[Add Peer] Request to add peer at {ip}:{port} with name '{display_name}'")
+        log.info(f"[Add Peer] My peer_id={self.peer_id}, my name={self.display_name}")
         
         if not ip or not port:
             log.error("[Add Peer] Invalid IP or port")
