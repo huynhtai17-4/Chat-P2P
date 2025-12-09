@@ -18,6 +18,7 @@ except ImportError:
 
 VMWARE_NETWORKS = [
     "192.168.234.",  # VMware
+    "192.168.235.",  # VMware NAT
     "192.168.56.",   # VirtualBox
     "192.168.122.",  # libvirt
     "169.254.",      # Link-local
@@ -75,15 +76,75 @@ def _get_all_network_ips() -> List[Tuple[str, str]]:
         except Exception as e:
             log.warning("Failed to enumerate network interfaces with psutil: %s", e)
     else:
+        # Fallback: Read from system commands or socket.getaddrinfo
+        print("[Network] psutil not available, using fallback IP detection")
+        
+        # Try to read from `ip addr` command on Linux
+        if platform.system() == "Linux":
+            try:
+                print("[Network] Trying `ip addr` command...")
+                result = subprocess.run(
+                    ["ip", "addr", "show"],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                if result.returncode == 0:
+                    import re
+                    # Parse output: inet 192.168.x.x/24 ...
+                    lines = result.stdout.split('\n')
+                    current_interface = None
+                    for line in lines:
+                        # Match interface name
+                        if_match = re.match(r'^\d+:\s+(\S+):', line)
+                        if if_match:
+                            current_interface = if_match.group(1)
+                        # Match inet address
+                        inet_match = re.search(r'inet\s+(\d+\.\d+\.\d+\.\d+)', line)
+                        if inet_match and current_interface:
+                            ip = inet_match.group(1)
+                            if ip and ip != "127.0.0.1" and not ip.startswith("127."):
+                                print(f"[Network] Found IP from `ip addr`: {ip} ({current_interface})")
+                                ips.append((current_interface, ip))
+            except Exception as e:
+                print(f"[Network] `ip addr` command failed: {e}")
+        
+        # Try hostname resolution
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                s.connect(("8.8.8.8", 80))
-                ip = s.getsockname()[0]
-                if ip and ip != "127.0.0.1":
-                    ips.append(("default", ip))
+            hostname = socket.gethostname()
+            print(f"[Network] Hostname: {hostname}")
+            
+            # Get all IPs associated with hostname
+            try:
+                addr_infos = socket.getaddrinfo(hostname, None, socket.AF_INET)
+                for addr_info in addr_infos:
+                    ip = addr_info[4][0]
+                    if ip and ip != "127.0.0.1" and not ip.startswith("127."):
+                        print(f"[Network] Found IP from hostname: {ip}")
+                        # Only add if not already in list
+                        if not any(existing_ip == ip for _, existing_ip in ips):
+                            ips.append(("hostname", ip))
+            except Exception as e:
+                print(f"[Network] getaddrinfo failed: {e}")
+            
+            # Also try socket trick (may return NAT IP but better than nothing)
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.connect(("8.8.8.8", 80))
+                    ip = s.getsockname()[0]
+                    if ip and ip != "127.0.0.1":
+                        print(f"[Network] Found IP from socket trick: {ip}")
+                        # Only add if not already in list
+                        if not any(existing_ip == ip for _, existing_ip in ips):
+                            ips.append(("socket", ip))
+            except Exception as e:
+                print(f"[Network] Socket trick failed: {e}")
+                
         except Exception as e:
+            print(f"[Network] Fallback IP detection failed: {e}")
             log.warning("Failed to get network IP with fallback: %s", e)
     
+    print(f"[Network] Found {len(ips)} IPs: {[ip for _, ip in ips]}")
     return ips
 
 def _count_running_instances() -> int:
