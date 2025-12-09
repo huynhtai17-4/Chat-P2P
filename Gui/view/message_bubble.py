@@ -35,10 +35,10 @@ class MessageBubble(QLabel):
                 layout.addWidget(label)
 
             if time_str:
-            time_label = QLabel(time_str)
-            time_label.setObjectName("MessageTimestamp")
-            time_label.setAlignment(Qt.AlignRight if is_sender else Qt.AlignLeft)
-            time_label.setStyleSheet("font-size: 10px; color: #999; padding: 2px 5px;")
+                time_label = QLabel(time_str)
+                time_label.setObjectName("MessageTimestamp")
+                time_label.setAlignment(Qt.AlignRight if is_sender else Qt.AlignLeft)
+                time_label.setStyleSheet("font-size: 10px; color: #999; padding: 2px 5px;")
                 layout.addWidget(time_label)
 
             self._container = container
