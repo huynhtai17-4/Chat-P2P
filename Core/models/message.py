@@ -130,11 +130,12 @@ class Message:
         )
     
     @classmethod
-    def create_hello(cls, sender_id: str, sender_name: str, receiver_id: str, tcp_port: int = 0) -> "Message":
-        """Create HELLO handshake message with sender's tcp_port"""
+    def create_hello(cls, sender_id: str, sender_name: str, receiver_id: str, tcp_port: int = 0, sender_ip: str = "") -> "Message":
+        """Create HELLO handshake message with sender's tcp_port and IP"""
         import json
         content_data = {
-            "tcp_port": tcp_port
+            "tcp_port": tcp_port,
+            "sender_ip": sender_ip  # Add sender's real IP
         }
         return cls.create(
             sender_id=sender_id,

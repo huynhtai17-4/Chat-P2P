@@ -84,6 +84,9 @@ class ChatCore:
         self.local_ip = get_local_ip()
         log.info("Local IP: %s", self.local_ip)
         
+        # Pass local_ip to router so it can include in HELLO messages
+        self.router.local_ip = self.local_ip
+        
         self._running = True
         log.info("ChatCore started successfully (peer_id: %s, tcp_port: %s, local_ip: %s)", 
                 self.peer_id, self.tcp_port, self.local_ip)

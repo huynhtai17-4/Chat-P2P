@@ -25,14 +25,18 @@ class MessageHandlers:
             log.warning("[HELLO] Ignoring HELLO from myself (loopback)")
             return
         
-        # Extract sender's real TCP port from message content
+        # Extract sender's real IP and TCP port from message content
         sender_tcp_port = 0
+        sender_real_ip = sender_ip  # Default to socket IP
         try:
             content_data = json.loads(message.content) if message.content else {}
             sender_tcp_port = content_data.get("tcp_port", 0)
-            log.info("[HELLO] Extracted sender's tcp_port=%s from message", sender_tcp_port)
+            sender_real_ip = content_data.get("sender_ip", sender_ip)  # Use sender's real IP if provided
+            print(f"[HELLO] Extracted sender_ip={sender_real_ip}, tcp_port={sender_tcp_port}")
+            log.info("[HELLO] Extracted sender_ip=%s, tcp_port=%s from message", sender_real_ip, sender_tcp_port)
         except:
-            log.warning("[HELLO] Could not extract tcp_port from HELLO message, using socket port %s", sender_port)
+            print(f"[HELLO] Could not extract from message, using socket values: {sender_ip}:{sender_port}")
+            log.warning("[HELLO] Could not extract from HELLO message, using socket: %s:%s", sender_ip, sender_port)
             sender_tcp_port = sender_port
         
         # Reply with our peer info
@@ -59,16 +63,16 @@ class MessageHandlers:
             log.info("[HELLO] Replying with our info: peer_id=%s, name=%s, ip=%s, port=%s", 
                     self.router.peer_id, self.router.display_name, local_ip, self.router.tcp_port)
             
-            # Send reply back to sender's TCP port (not socket port!)
-            print(f"[HELLO] Sending HELLO_REPLY to {sender_ip}:{sender_tcp_port}")
-            log.info("[HELLO] Sending HELLO_REPLY to %s:%s (sender's tcp_port)", sender_ip, sender_tcp_port)
-            success = self.router.peer_client.send(sender_ip, sender_tcp_port, reply_msg)
+            # Send reply back to sender's real IP and TCP port
+            print(f"[HELLO] Sending HELLO_REPLY to {sender_real_ip}:{sender_tcp_port}")
+            log.info("[HELLO] Sending HELLO_REPLY to %s:%s (sender's real address)", sender_real_ip, sender_tcp_port)
+            success = self.router.peer_client.send(sender_real_ip, sender_tcp_port, reply_msg)
             if success:
-                print(f"[HELLO] ✓ Successfully sent HELLO_REPLY to {sender_ip}:{sender_tcp_port}")
-                log.info("[HELLO] Successfully sent HELLO_REPLY to %s:%s", sender_ip, sender_tcp_port)
+                print(f"[HELLO] ✓ Successfully sent HELLO_REPLY to {sender_real_ip}:{sender_tcp_port}")
+                log.info("[HELLO] Successfully sent HELLO_REPLY to %s:%s", sender_real_ip, sender_tcp_port)
             else:
-                print(f"[HELLO] ✗ Failed to send HELLO_REPLY to {sender_ip}:{sender_tcp_port}")
-                log.warning("[HELLO] Failed to send HELLO_REPLY to %s:%s", sender_ip, sender_tcp_port)
+                print(f"[HELLO] ✗ Failed to send HELLO_REPLY to {sender_real_ip}:{sender_tcp_port}")
+                log.warning("[HELLO] Failed to send HELLO_REPLY to %s:%s", sender_real_ip, sender_tcp_port)
         except Exception as e:
             log.error("[HELLO] Error sending HELLO_REPLY: %s", e, exc_info=True)
     

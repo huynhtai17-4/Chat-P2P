@@ -294,11 +294,15 @@ class MessageRouter:
         # Send HELLO handshake to verify peer exists and get peer info
         try:
             print(f"[Add Peer] Creating HELLO message to send to {ip}:{port}")
+            # Get our real IP (the one we're listening on)
+            my_ip = getattr(self, 'local_ip', '127.0.0.1')
+            print(f"[Add Peer] Including our IP in HELLO: {my_ip}:{self.tcp_port}")
             hello_msg = Message.create_hello(
                 sender_id=self.peer_id,
                 sender_name=self.display_name or "Unknown",
                 receiver_id=temp_peer_id,
-                tcp_port=self.tcp_port
+                tcp_port=self.tcp_port,
+                sender_ip=my_ip  # Include our real IP
             )
             print(f"[Add Peer] Sending HELLO to {ip}:{port}...")
             success = self.peer_client.send(ip, port, hello_msg)
