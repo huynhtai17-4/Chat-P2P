@@ -125,27 +125,44 @@ class MainWindowController(QObject):
 
     def add_friend_by_ip(self, ip: str, port: int):
         """Add a friend by IP address and port."""
-        ip = ip.strip() if ip else ""
-        
-        if not ip or not port:
-            self.show_message_box.emit("warning", "Add Friend", "Please enter a valid IP and port.")
-            return
-        
-        if port < 1 or port > 65535:
-            self.show_message_box.emit("warning", "Add Friend", "Port must be between 1 and 65535.")
-            return
-        
-        log.info(f"[Add Friend] Attempting to add peer at {ip}:{port}")
-        
-        success, result = self.chat_core.add_peer_by_ip(ip, port, display_name="Unknown")
-        if success:
-            log.info(f"[Add Friend] Successfully added peer at {ip}:{port}")
-            self.show_message_box.emit("info", "Add Friend", f"Added friend at {ip}:{port}")
-            self._update_peers_from_core()
-            self._refresh_chat_list()
-        else:
-            log.error(f"[Add Friend] Failed to add peer at {ip}:{port}: {result}")
-            self.show_message_box.emit("warning", "Add Friend", f"Failed to add friend: {result}")
+        try:
+            log.info(f"[Controller] add_friend_by_ip called with IP={ip}, Port={port}, Type: {type(port)}")
+            
+            # Convert port to int if it's a string
+            if isinstance(port, str):
+                try:
+                    port = int(port)
+                except ValueError:
+                    log.error(f"[Controller] Invalid port value: {port}")
+                    self.show_message_box.emit("warning", "Add Friend", f"Invalid port: {port}")
+                    return
+            
+            ip = ip.strip() if ip else ""
+            
+            if not ip or not port:
+                log.warning(f"[Controller] Empty IP or port: IP={ip}, Port={port}")
+                self.show_message_box.emit("warning", "Add Friend", "Please enter a valid IP and port.")
+                return
+            
+            if port < 1 or port > 65535:
+                log.warning(f"[Controller] Port out of range: {port}")
+                self.show_message_box.emit("warning", "Add Friend", "Port must be between 1 and 65535.")
+                return
+            
+            log.info(f"[Controller] [Add Friend] Attempting to add peer at {ip}:{port}")
+            
+            success, result = self.chat_core.add_peer_by_ip(ip, port, display_name="Unknown")
+            if success:
+                log.info(f"[Controller] [Add Friend] Successfully added peer at {ip}:{port}")
+                self.show_message_box.emit("info", "Add Friend", f"Added friend at {ip}:{port}")
+                self._update_peers_from_core()
+                self._refresh_chat_list()
+            else:
+                log.error(f"[Controller] [Add Friend] Failed to add peer at {ip}:{port}: {result}")
+                self.show_message_box.emit("warning", "Add Friend", f"Failed to add friend: {result}")
+        except Exception as e:
+            log.error(f"[Controller] Exception in add_friend_by_ip: {e}", exc_info=True)
+            self.show_message_box.emit("error", "Add Friend Error", f"An error occurred: {e}")
     
     def send_message(self, message_text: str) -> bool:
         if not self.current_peer_id:

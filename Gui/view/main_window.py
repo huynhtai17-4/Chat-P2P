@@ -91,7 +91,9 @@ class MainWindow(QMainWindow):
         self.center_panel.remove_friend_requested.connect(self.controller.remove_friend)
 
         # Connect Add Friend by IP from right sidebar
+        print("[MainWindow] Connecting add_friend_requested signal to controller.add_friend_by_ip")
         self.right_sidebar.add_friend_requested.connect(self.controller.add_friend_by_ip)
+        print(f"[MainWindow] Signal connected: {self.right_sidebar.add_friend_requested} -> {self.controller.add_friend_by_ip}")
         
         # Connect peer status update callbacks
         self.controller._update_peer_status_callback = self._update_peer_status_in_list

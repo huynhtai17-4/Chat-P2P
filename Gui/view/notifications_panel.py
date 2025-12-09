@@ -180,8 +180,15 @@ class NotificationsPanel(QFrame):
             print(f"[NotificationsPanel] Invalid port value: {port_str}")
             return
         
-        print(f"[NotificationsPanel] Emitting add_friend_requested signal: {ip}:{port}")
-        self.add_friend_requested.emit(ip, port)
+        print(f"[NotificationsPanel] About to emit signal with: IP={ip} (type={type(ip)}), Port={port} (type={type(port)})")
+        print(f"[NotificationsPanel] Signal object: {self.add_friend_requested}")
+        try:
+            self.add_friend_requested.emit(ip, port)
+            print(f"[NotificationsPanel] Signal emitted successfully")
+        except Exception as e:
+            print(f"[NotificationsPanel] ERROR emitting signal: {e}")
+            import traceback
+            traceback.print_exc()
         
         # Clear inputs after adding
         self.ip_input.clear()

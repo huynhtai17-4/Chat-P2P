@@ -24,7 +24,7 @@ class MessageBubble(QLabel):
             layout = QVBoxLayout(container)
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setSpacing(2)
-
+            
             file_widget = self._create_file_widget(file_name, file_data, msg_type)
             layout.addWidget(file_widget)
 
@@ -35,10 +35,10 @@ class MessageBubble(QLabel):
                 layout.addWidget(label)
 
             if time_str:
-                time_label = QLabel(time_str)
-                time_label.setObjectName("MessageTimestamp")
-                time_label.setAlignment(Qt.AlignRight if is_sender else Qt.AlignLeft)
-                time_label.setStyleSheet("font-size: 10px; color: #999; padding: 2px 5px;")
+            time_label = QLabel(time_str)
+            time_label.setObjectName("MessageTimestamp")
+            time_label.setAlignment(Qt.AlignRight if is_sender else Qt.AlignLeft)
+            time_label.setStyleSheet("font-size: 10px; color: #999; padding: 2px 5px;")
                 layout.addWidget(time_label)
 
             self._container = container
@@ -58,14 +58,14 @@ class MessageBubble(QLabel):
                 time_label.setObjectName("MessageTimestamp")
                 time_label.setAlignment(Qt.AlignRight if is_sender else Qt.AlignLeft)
                 time_label.setStyleSheet("font-size: 10px; color: #999; padding: 2px 5px;")
-                layout.addWidget(time_label)
-
+            layout.addWidget(time_label)
+            
             self._container = container
         else:
             super().__init__(text if text else "")
             self.setWordWrap(True)
             self._container = None
-
+        
         # Normalize max width so sender/receiver bubbles have similar sizing
         max_width = 420
         if self._container:
