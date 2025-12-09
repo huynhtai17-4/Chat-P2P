@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 from pathlib import Path
 from typing import List, Optional
 
 from Core.models.message import Message
+
+log = logging.getLogger(__name__)
 
 class PeerMessageStorage:
     
@@ -45,9 +48,18 @@ class PeerMessageStorage:
     
     def _save_raw_messages(self, messages: List[dict]):
         # Ensure parent directory exists
-        self.messages_file.parent.mkdir(parents=True, exist_ok=True)
-        with self.messages_file.open("w", encoding="utf-8") as f:
-            json.dump(messages, f, ensure_ascii=False, indent=2)
+        try:
+            self.messages_file.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            log.error(f"Failed to create directory {self.messages_file.parent}: {e}")
+            raise
+        
+        try:
+            with self.messages_file.open("w", encoding="utf-8") as f:
+                json.dump(messages, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            log.error(f"Failed to save messages to {self.messages_file}: {e}")
+            raise
     
     def get_files_dir(self) -> Path:
         self._ensure_files_dir()

@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import time
 import base64
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 try:
     from PySide6.QtCore import QObject, Signal
