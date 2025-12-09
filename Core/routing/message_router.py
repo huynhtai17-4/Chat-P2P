@@ -156,6 +156,12 @@ class MessageRouter:
             self.message_handlers.handle_hello_reply(message, sender_ip)
             return
         
+        # Block messages from peers not in friends list (after unfriend)
+        with self._lock:
+            if message.sender_id not in self._peers:
+                log.debug("[BLOCK] Ignored message from %s (not in friends list)", message.sender_id)
+                return
+        
         log.info("Message from %s (%s): %s", message.sender_name, message.sender_id, message.content)
         
         peer_id = message.sender_id if message.sender_id != self.peer_id else message.receiver_id

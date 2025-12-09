@@ -64,6 +64,10 @@ class MainWindowController(QObject):
             raise
         
         self._update_peers_from_core()
+        
+        # Clean up orphaned chat folders (folders without corresponding peers)
+        self._cleanup_orphaned_chat_folders()
+        
         self._refresh_chat_list()
         
         self._peer_refresh_timer = QTimer()
@@ -387,4 +391,100 @@ class MainWindowController(QObject):
                 log.info("Cleaned up %s offline peers", removed_count)
                 self._refresh_chat_list()
     
+    def remove_friend(self, peer_id: str):
+        """Remove a friend from peer list"""
+        try:
+            log.info(f"[Controller] Removing friend {peer_id}")
+            
+            # Get peer name
+            peer_info = self.peers.get(peer_id, {})
+            peer_name = peer_info.get('display_name', 'Unknown')
+            
+            # Send OFFLINE to peer before removing (so they know we're gone)
+            if self.chat_core.router and self.chat_core.router.status_broadcaster:
+                log.info(f"[Controller] Sending OFFLINE to {peer_name} before removing")
+                self.chat_core.router.status_broadcaster.send_status_to_peer(peer_id, "offline")
+            
+            # Remove from router runtime first (to prevent reload from storage)
+            if self.chat_core.router:
+                with self.chat_core.router._lock:
+                    if peer_id in self.chat_core.router._peers:
+                        del self.chat_core.router._peers[peer_id]
+                        log.info(f"[Controller] Removed peer {peer_id} from router runtime")
+            
+            # Remove from core storage
+            if self.chat_core.router and self.chat_core.router.data_manager:
+                self.chat_core.router.data_manager.delete_peer(peer_id)
+                log.info(f"[Controller] Deleted peer {peer_id} from storage")
+            
+            # Remove from controller runtime
+            if peer_id in self.peers:
+                del self.peers[peer_id]
+            
+            if peer_id in self.unread_counts:
+                del self.unread_counts[peer_id]
+            
+            # Also delete chat history folder completely
+            if self.chat_core.router and self.chat_core.router.data_manager:
+                from pathlib import Path
+                import shutil
+                chat_folder = Path(self.chat_core.router.data_manager.root) / "chats" / peer_id
+                if chat_folder.exists() and chat_folder.is_dir():
+                    try:
+                        shutil.rmtree(str(chat_folder))
+                        log.info(f"[Controller] Deleted chat folder for removed friend: {chat_folder}")
+                    except Exception as e:
+                        log.error(f"[Controller] Failed to delete chat folder {chat_folder}: {e}", exc_info=True)
+                else:
+                    log.warning(f"[Controller] Chat folder does not exist: {chat_folder}")
+            
+            # Clear current selection if this was the selected peer
+            if self.current_peer_id == peer_id:
+                self.current_peer_id = None
+                self.load_chat_history.emit("", [])
+            
+            # Sync peers from router to ensure consistency
+            self._update_peers_from_core()
+            
+            self.show_message_box.emit("info", "Friend Removed", f"{peer_name} has been removed from your friends list.")
+            
+        except Exception as e:
+            log.error(f"[Controller] Error removing friend: {e}", exc_info=True)
+            self.show_message_box.emit("error", "Error", f"Failed to remove friend: {e}")
+    
+    def _cleanup_orphaned_chat_folders(self):
+        """Remove chat folders that don't have corresponding peers in peers.json"""
+        try:
+            if not self.chat_core.router or not self.chat_core.router.data_manager:
+                return
+            
+            from pathlib import Path
+            import shutil
+            
+            chats_dir = Path(self.chat_core.router.data_manager.root) / "chats"
+            if not chats_dir.exists():
+                return
+            
+            # Get list of peer IDs from peers.json
+            known_peer_ids = set(self.peers.keys())
+            
+            # Check each folder in chats directory
+            removed_count = 0
+            for folder_path in chats_dir.iterdir():
+                if folder_path.is_dir():
+                    folder_name = folder_path.name
+                    # If folder name (peer_id) is not in known peers, delete it
+                    if folder_name not in known_peer_ids:
+                        try:
+                            shutil.rmtree(str(folder_path))
+                            log.info(f"[Controller] Cleaned up orphaned chat folder: {folder_name}")
+                            removed_count += 1
+                        except Exception as e:
+                            log.warning(f"[Controller] Failed to remove orphaned folder {folder_name}: {e}")
+            
+            if removed_count > 0:
+                log.info(f"[Controller] Cleaned up {removed_count} orphaned chat folder(s)")
+        
+        except Exception as e:
+            log.error(f"[Controller] Error cleaning up orphaned folders: {e}", exc_info=True)
 

@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, 
-    QLineEdit, QPushButton, QScrollArea, QWidget
+    QLineEdit, QPushButton, QScrollArea, QWidget, QMenu
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QIcon, QPixmap, QAction
 from PySide6.QtCore import QSize
 import os
 import base64
@@ -13,11 +13,18 @@ from .message_bubble import MessageBubble
 from Gui.controller.chat_area_controller import ChatAreaController
 
 class ChatArea(QFrame):
+    # Signals
+    remove_friend_requested = Signal(str)  # peer_id
+    
     def __init__(self):
         super().__init__()
         self.setObjectName("CenterPanel")
         self.setMinimumHeight(300)
         self.setMinimumHeight(500)
+        
+        # Store current peer info
+        self.current_peer_id = None
+        self.current_peer_name = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -55,6 +62,10 @@ class ChatArea(QFrame):
     
     def set_peer_info(self, peer_name: str, peer_id: str = "", is_online: bool = False, avatar_path: str = None):
         """Update chat header with peer info and show header"""
+        # Store current peer info
+        self.current_peer_id = peer_id
+        self.current_peer_name = peer_name
+        
         self.header_name.setText(peer_name)
         
         if is_online:
@@ -75,6 +86,8 @@ class ChatArea(QFrame):
     
     def hide_header(self):
         """Hide chat header when no peer selected"""
+        self.current_peer_id = None
+        self.current_peer_name = None
         self.header_frame.setVisible(False)
     
     def set_peer_status(self, is_online: bool):
@@ -130,6 +143,7 @@ class ChatArea(QFrame):
         self.more_icon.setIconSize(QSize(22, 22))
         self.more_icon.setFlat(True)
         self.more_icon.setObjectName("IconButton")
+        self.more_icon.clicked.connect(self._show_options_menu)
 
         icons_layout.addWidget(self.phone_icon)
         icons_layout.addWidget(self.video_icon)
@@ -435,3 +449,39 @@ class ChatArea(QFrame):
         from PySide6.QtCore import QTimer
         scroll_bar = self.message_area.verticalScrollBar()
         QTimer.singleShot(0, lambda: scroll_bar.setValue(scroll_bar.maximum()))
+    
+    def _show_options_menu(self):
+        """Show menu with option: Remove Friend"""
+        if not self.current_peer_id or not self.current_peer_name:
+            return
+        
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: white;
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 5px;
+            }
+            QMenu::item {
+                padding: 8px 20px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: #f0f0f0;
+            }
+        """)
+        
+        # Remove Friend action
+        remove_friend_action = QAction("❌ Remove Friend", self)
+        remove_friend_action.triggered.connect(lambda: self._on_remove_friend())
+        menu.addAction(remove_friend_action)
+        
+        # Show menu at button position
+        button_pos = self.more_icon.mapToGlobal(self.more_icon.rect().bottomLeft())
+        menu.exec(button_pos)
+    
+    def _on_remove_friend(self):
+        """Handle remove friend request"""
+        if self.current_peer_id:
+            self.remove_friend_requested.emit(self.current_peer_id)

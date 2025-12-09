@@ -86,6 +86,9 @@ class MainWindow(QMainWindow):
         
         self.controller.add_preview_callback = lambda name, data, is_img: self.center_panel.add_preview_item(name, data, is_img)
         self.controller.clear_preview_callback = lambda: self.center_panel.clear_preview()
+        
+        # Connect remove friend action from chat area
+        self.center_panel.remove_friend_requested.connect(self.controller.remove_friend)
 
         # Connect Add Friend by IP from right sidebar
         self.right_sidebar.add_friend_requested.connect(self.controller.add_friend_by_ip)
