@@ -44,6 +44,8 @@ class PeerMessageStorage:
             return []
     
     def _save_raw_messages(self, messages: List[dict]):
+        # Ensure parent directory exists
+        self.messages_file.parent.mkdir(parents=True, exist_ok=True)
         with self.messages_file.open("w", encoding="utf-8") as f:
             json.dump(messages, f, ensure_ascii=False, indent=2)
     
