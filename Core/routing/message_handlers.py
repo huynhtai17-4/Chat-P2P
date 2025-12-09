@@ -142,6 +142,12 @@ class MessageHandlers:
             success = friend_mgr.send_friend_request(actual_peer_id)
             if success:
                 log.info("[HELLO_REPLY] Successfully sent FRIEND_REQUEST to %s", actual_peer_id)
+                
+                # Send ONLINE status to the newly added peer
+                log.info("[HELLO_REPLY] Sending ONLINE status to %s", actual_peer_id)
+                from .status_broadcaster import StatusBroadcaster
+                status_mgr = StatusBroadcaster(self.router)
+                status_mgr.send_status_to_peer(actual_peer_id, "online")
             else:
                 log.error("[HELLO_REPLY] Failed to send FRIEND_REQUEST to %s", actual_peer_id)
                         
@@ -195,6 +201,12 @@ class MessageHandlers:
                         log.info("[FRIEND_REQUEST] Notified peer callback for new peer %s", message.sender_id)
                     except Exception as e:
                         log.error("[FRIEND_REQUEST] Error in peer callback: %s", e)
+                
+                # Send ONLINE status to the newly added peer
+                log.info("[FRIEND_REQUEST] Sending ONLINE status to %s", message.sender_id)
+                from .status_broadcaster import StatusBroadcaster
+                status_mgr = StatusBroadcaster(self.router)
+                status_mgr.send_status_to_peer(message.sender_id, "online")
             
             # Track incoming request
             if message.sender_id in self.router._incoming_requests:

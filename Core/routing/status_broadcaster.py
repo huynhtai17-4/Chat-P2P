@@ -59,3 +59,45 @@ class StatusBroadcaster:
                 log.error("[STATUS] Error sending %s to %s: %s", status, peer.peer_id, e)
         
         log.info("[STATUS] Broadcast complete: %s/%s sent successfully", sent_count, len(friends))
+    
+    def send_status_to_peer(self, peer_id: str, status: str):
+        """Send ONLINE/OFFLINE status to a specific peer"""
+        if status not in ("online", "offline"):
+            log.warning("[STATUS] Invalid status: %s", status)
+            return False
+        
+        with self.router._lock:
+            peer = self.router._peers.get(peer_id)
+        
+        if not peer:
+            log.warning("[STATUS] Peer %s not found", peer_id)
+            return False
+        
+        if not peer.ip or not peer.tcp_port or peer.tcp_port == 0:
+            log.warning("[STATUS] Peer %s has invalid IP=%s or port=%s", peer_id, peer.ip, peer.tcp_port)
+            return False
+        
+        try:
+            if status == "online":
+                message = Message.create_online_status(
+                    sender_id=self.router.peer_id,
+                    sender_name=self.router.display_name or "Unknown",
+                    receiver_id=peer.peer_id
+                )
+            else:
+                message = Message.create_offline_status(
+                    sender_id=self.router.peer_id,
+                    sender_name=self.router.display_name or "Unknown",
+                    receiver_id=peer.peer_id
+                )
+            
+            success = self.router.peer_client.send(peer.ip, peer.tcp_port, message)
+            if success:
+                log.info("[STATUS] ✓ Sent %s to %s", status.upper(), peer.display_name)
+                return True
+            else:
+                log.debug("[STATUS] Failed to send %s to %s", status.upper(), peer.display_name)
+                return False
+        except Exception as e:
+            log.error("[STATUS] Error sending %s to %s: %s", status, peer_id, e)
+            return False
