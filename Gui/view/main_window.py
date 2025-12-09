@@ -34,7 +34,7 @@ class MainWindow(QMainWindow):
         self.controller.start()
         
         # Set user network info in right sidebar
-        local_ip = getattr(self.controller.chat_core, 'local_ip', '127.0.0.1')
+        local_ip = getattr(self.controller.chat_core, 'local_ip', '')
         self.right_sidebar.set_user_network_info(local_ip, self.tcp_port)
 
     def _setup_ui(self):

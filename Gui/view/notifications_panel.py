@@ -87,11 +87,6 @@ class NotificationsPanel(QFrame):
         network_info_layout.setContentsMargins(0, 0, 0, 0)
         network_info_layout.setSpacing(3)
         
-        # Localhost IP (for same machine)
-        self.localhost_label = QLabel("Localhost: 127.0.0.1")
-        self.localhost_label.setStyleSheet("font-size: 11px; color: #999;")
-        network_info_layout.addWidget(self.localhost_label)
-        
         # LAN IP (for network)
         self.lan_ip_label = QLabel("LAN IP: --")
         self.lan_ip_label.setStyleSheet("font-size: 12px; color: #2196F3; font-weight: bold;")
@@ -146,11 +141,8 @@ class NotificationsPanel(QFrame):
     
     def set_user_network_info(self, lan_ip: str, port: int):
         """Set the user's network info display."""
-        # Always show localhost
-        self.localhost_label.setText("Localhost: 127.0.0.1")
-        
         # Show LAN IP
-        if lan_ip == "127.0.0.1":
+        if not lan_ip or lan_ip.startswith("127."):
             self.lan_ip_label.setText("LAN IP: Not available (no network)")
             self.lan_ip_label.setStyleSheet("font-size: 11px; color: #999;")
         else:

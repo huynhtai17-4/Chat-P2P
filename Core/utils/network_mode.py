@@ -211,29 +211,29 @@ def detect_network_mode() -> str:
     lan_ips = [(name, ip) for name, ip in all_ips if _is_lan_ip(ip)]
     
     if not lan_ips:
-        log.info("No valid LAN IPs found (only virtual adapters or localhost) - using single-machine mode")
+        log.info("No valid LAN IPs found (only virtual adapters) - using single-machine mode")
         return NETWORK_MODE_SINGLE
     
     log.info("Detected LAN mode with %s valid IP(s): %s", len(lan_ips), [ip for _, ip in lan_ips])
     return NETWORK_MODE_LAN
 
 def get_local_ip(network_mode: Optional[str] = None) -> str:
-    """Get local IP address - prioritize private IP over public/localhost"""
+    """Get local IP address - prioritize private IP over public"""
     all_ips = _get_all_network_ips()
     
     if not all_ips:
-        log.warning("No network interfaces found, falling back to 127.0.0.1")
-        return "127.0.0.1"
+        log.warning("No network interfaces found")
+        return ""
     
-    # Filter out virtual adapters and localhost
+    # Filter out virtual adapters
     valid_ips = []
     for name, ip in all_ips:
-        if not _is_virtual_adapter(ip):
+        if not _is_virtual_adapter(ip) and not ip.startswith("127."):
             valid_ips.append((name, ip))
     
     if not valid_ips:
-        log.warning("Only virtual adapters found, falling back to 127.0.0.1")
-        return "127.0.0.1"
+        log.warning("Only virtual adapters found")
+        return ""
     
     # Prioritize private IPs (RFC 1918)
     # 1. 192.168.x.x (most common home/office)
@@ -270,22 +270,18 @@ def get_local_ip(network_mode: Optional[str] = None) -> str:
             except (ValueError, IndexError):
                 continue
     
-    # 5. If any other non-localhost IP exists (could be public IP)
+    # 5. If any other IP exists (could be public IP)
     for name, ip in valid_ips:
-        if not ip.startswith("127."):
-            log.info("Selected IP (public or other): %s (%s)", ip, name)
-            return ip
+        log.info("Selected IP (public or other): %s (%s)", ip, name)
+        return ip
     
-    # Last resort: localhost
-    log.warning("No valid network IP found, falling back to 127.0.0.1 (localhost only)")
-    return "127.0.0.1"
+    # No valid IP found
+    log.warning("No valid network IP found")
+    return ""
 
 def get_broadcast_address(network_mode: Optional[str] = None) -> str:
     
     if network_mode is None:
         network_mode = detect_network_mode()
-    
-    if network_mode == NETWORK_MODE_SINGLE:
-        return "127.0.0.1"
     
     return "255.255.255.255"

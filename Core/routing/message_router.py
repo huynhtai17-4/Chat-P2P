@@ -295,7 +295,7 @@ class MessageRouter:
         try:
             print(f"[Add Peer] Creating HELLO message to send to {ip}:{port}")
             # Get our real IP (the one we're listening on)
-            my_ip = getattr(self, 'local_ip', '127.0.0.1')
+            my_ip = getattr(self, 'local_ip', '')
             print(f"[Add Peer] Router has local_ip attribute: {hasattr(self, 'local_ip')}")
             print(f"[Add Peer] My IP (for HELLO): {my_ip}")
             print(f"[Add Peer] Including our IP in HELLO: {my_ip}:{self.tcp_port}")
@@ -358,4 +358,4 @@ class MessageRouter:
             from Core.utils.network_mode import get_local_ip
             return get_local_ip()
         except Exception:
-            return "127.0.0.1"
+            return ""

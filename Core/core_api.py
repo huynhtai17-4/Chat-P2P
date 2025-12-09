@@ -61,7 +61,7 @@ class ChatCore:
 
         self.router = MessageRouter()
         self.peer_id = self.router.peer_id
-        self.local_ip = "127.0.0.1"
+        self.local_ip = ""
         self._running = False
 
     def start(self):

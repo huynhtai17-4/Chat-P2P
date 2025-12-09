@@ -49,7 +49,7 @@ class MessageHandlers:
                 local_ip = s.getsockname()[0]
                 s.close()
             except:
-                local_ip = "127.0.0.1"
+                local_ip = ""
             
             reply_msg = Message.create_hello_reply(
                 sender_id=self.router.peer_id,
@@ -93,7 +93,7 @@ class MessageHandlers:
             reply_data = json.loads(message.content)
             actual_peer_id = reply_data.get("peer_id", message.sender_id)
             display_name = reply_data.get("display_name", message.sender_name)
-            peer_ip = reply_data.get("ip", sender_ip if sender_ip else "127.0.0.1")
+            peer_ip = reply_data.get("ip", sender_ip if sender_ip else "")
             peer_tcp_port = int(reply_data.get("tcp_port", 0))
             
             log.info("[HELLO_REPLY] Parsed: peer_id=%s, name=%s, ip=%s, port=%s", 
@@ -210,7 +210,7 @@ class MessageHandlers:
                 peer = PeerInfo(
                     peer_id=message.sender_id,
                     display_name=message.sender_name,
-                    ip=sender_ip if sender_ip and sender_ip != "0.0.0.0" else "127.0.0.1",
+                    ip=sender_ip if sender_ip and sender_ip != "0.0.0.0" else "",
                     tcp_port=peer_tcp_port,
                     status="offline"
                 )
@@ -294,7 +294,7 @@ class MessageHandlers:
         
         try:
             sync_data = json.loads(message.content)
-            peer_ip = sync_data.get("ip", sender_ip if sender_ip else "127.0.0.1")
+            peer_ip = sync_data.get("ip", sender_ip if sender_ip else "")
             peer_tcp_port = int(sync_data.get("tcp_port", 0))
             
             if peer_tcp_port < 55000 or peer_tcp_port > 55199:
