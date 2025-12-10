@@ -36,8 +36,6 @@ class MainWindowController(QObject):
             username=normalized_username,
             display_name=self.display_name,
             tcp_port=self.tcp_port,
-            on_message_callback=None,
-            on_peer_update=None,
         )
         
         self.chat_core.signals.message_received.connect(self._on_message_received_signal)
@@ -397,14 +395,7 @@ class MainWindowController(QObject):
             
             self.show_message_box.emit("warning", "Friend Request Rejected", f"{peer_name} rejected your friend request.")
         except Exception as e:
-            import traceback
-    
-    def _cleanup_offline_peers(self):
-        if self.chat_core:
-            removed_count = self.chat_core.cleanup_offline_peers()
-            if removed_count > 0:
-                log.info("Cleaned up %s offline peers", removed_count)
-                self._refresh_chat_list()
+            log.error(f"Error handling friend rejected: {e}")
     
     def remove_friend(self, peer_id: str):
         try:

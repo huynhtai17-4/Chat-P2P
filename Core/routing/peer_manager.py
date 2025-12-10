@@ -11,24 +11,10 @@ class PeerManager:
     def __init__(self, router):
         self.router = router
     
-    def add_peer(self, peer_id: str) -> bool:
-        with self.router._lock:
-            if peer_id in self.router._peers:
-                log.info("Peer %s already in friends list", peer_id)
-                return True
-        log.warning("add_peer called but no discovery - use add_peer_by_ip instead!")
-        return False
-    
     def get_known_peers(self) -> List[PeerInfo]:
         
         with self.router._lock:
             return list(self.router._peers.values())
-    
-    def get_temp_discovered_peers(self) -> List[PeerInfo]:
-        return []
-    
-    def remove_temp_peer(self, peer_id: str) -> bool:
-        return False
     
     def cleanup_offline_peers(self, max_offline_time: float = 600.0) -> int:
         return 0

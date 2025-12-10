@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QMessageBox, QCheckBox, QWidget
+    QPushButton, QMessageBox, QWidget
 )
-from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QFont, QIcon, QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
 from app.user_manager import UserManager, User
 
 class LoginWindow(QDialog):

@@ -16,7 +16,6 @@ def _normalize_username(username: str) -> str:
     
     normalized = username.lower().strip()
     normalized = normalized.replace("@", "_at_")
-    import re
     normalized = re.sub(r'[^a-z0-9._-]', '_', normalized)
     return normalized
 
@@ -31,11 +30,6 @@ class User:
     def get_folder_name(self) -> str:
         
         return _normalize_username(self.username)
-    
-    @property
-    def folder(self) -> str:
-        
-        return os.path.join(DATA_DIR, self.get_folder_name())
 
     def to_dict(self) -> Dict:
         data = asdict(self)
@@ -148,10 +142,4 @@ class UserManager:
 
     def get_user(self, username: str) -> Optional[User]:
         return self.users.get(username.lower())
-    
-    def get_user_folder(self, username: str) -> Optional[str]:
-        
-        user = self.get_user(username)
-        if user:
-            return user.get_folder_name()
-        return None
+

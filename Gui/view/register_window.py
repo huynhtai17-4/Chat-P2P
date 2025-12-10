@@ -1,9 +1,9 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QFileDialog, QMessageBox, QCheckBox, QWidget
+    QPushButton, QFileDialog, QMessageBox, QWidget
 )
-from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
 from app.user_manager import UserManager
 from ..utils.avatar import load_circular_pixmap
 import os

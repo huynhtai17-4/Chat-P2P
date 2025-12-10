@@ -269,9 +269,6 @@ class MessageRouter:
     def set_peer_callback(self, callback: Optional[Callable[[PeerInfo], None]]):
         self._on_peer_callback = callback
 
-    def add_peer(self, peer_id: str) -> bool:
-        return self.peer_manager.add_peer(peer_id)
-    
     def add_peer_by_ip(self, ip: str, port: int, display_name: str = "Unknown") -> Tuple[bool, Optional[str]]:
         log.info(f"[Add Peer] Request to add peer at {ip}:{port} with name '{display_name}'")
         

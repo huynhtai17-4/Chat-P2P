@@ -5,13 +5,7 @@ import time
 import base64
 from typing import Callable, Dict, List, Optional, Tuple
 
-try:
-    from PySide6.QtCore import QObject, Signal
-    QT_AVAILABLE = True
-except ImportError:
-    QT_AVAILABLE = False
-    QObject = object
-    Signal = None
+from PySide6.QtCore import QObject, Signal
 
 from Core.routing.message_router import MessageRouter
 from Core.models.message import Message
@@ -24,8 +18,6 @@ class CoreSignals(QObject):
     
     message_received = Signal(dict)
     peer_updated = Signal(dict)
-    temp_peer_updated = Signal(dict)
-    temp_peer_removed = Signal(str)
     friend_request_received = Signal(str, str)
     friend_accepted = Signal(str)
     friend_rejected = Signal(str)
@@ -49,8 +41,6 @@ class ChatCore:
         username: str,
         display_name: str,
         tcp_port: int,
-        on_message_callback: Optional[Callable[[Dict], None]] = None,
-        on_peer_update: Optional[Callable[[Dict], None]] = None,
     ):
         
         self.username = username
@@ -58,13 +48,6 @@ class ChatCore:
         self.tcp_port = tcp_port
         
         self.signals = CoreSignals()
-        
-        self._on_message_callback = on_message_callback
-        self._on_peer_update = on_peer_update
-        self._on_temp_peer_update: Optional[Callable[[Dict], None]] = None
-        self._on_friend_request: Optional[Callable[[str, str], None]] = None
-        self._on_friend_accepted: Optional[Callable[[str], None]] = None
-        self._on_friend_rejected: Optional[Callable[[str], None]] = None
 
         self.router = MessageRouter()
         self.peer_id = self.router.peer_id
@@ -126,23 +109,8 @@ class ChatCore:
         history = self.router.get_message_history(peer_id)
         return [self._message_to_dict(msg) for msg in history]
     
-    def add_peer(self, peer_id: str) -> bool:
-        return False
-    
     def add_peer_by_ip(self, ip: str, port: int, display_name: str = "Unknown") -> Tuple[bool, Optional[str]]:
         return self.router.add_peer_by_ip(ip, port, display_name)
-    
-    def set_friend_request_callback(self, callback: Optional[Callable[[str, str], None]]):
-        
-        self._on_friend_request = callback
-    
-    def set_friend_accepted_callback(self, callback: Optional[Callable[[str], None]]):
-        
-        self._on_friend_accepted = callback
-    
-    def set_friend_rejected_callback(self, callback: Optional[Callable[[str], None]]):
-        
-        self._on_friend_rejected = callback
     
     def send_friend_request(self, peer_id: str) -> bool:
         
@@ -156,9 +124,6 @@ class ChatCore:
         
         return self.router.send_friend_reject(peer_id)
     
-    def cleanup_offline_peers(self, max_offline_time: float = 600.0) -> int:
-        return 0
-
     def start_call(self, peer_id: str, call_type: str) -> bool:
         peers = self.router.get_known_peers()
         peer = next((p for p in peers if p.peer_id == peer_id), None)
