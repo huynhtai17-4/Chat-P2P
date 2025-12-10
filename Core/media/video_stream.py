@@ -4,18 +4,23 @@ Video capture and processing using OpenCV
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, TYPE_CHECKING
 import threading
 import time
 
 try:
-    import cv2
-    import numpy as np
+    import cv2  # type: ignore
+    import numpy as np  # type: ignore
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
     cv2 = None
     np = None
+
+# Hint for type checkers (pylance) even if cv2/np missing at runtime
+if TYPE_CHECKING:
+    import cv2  # type: ignore
+    import numpy as np  # type: ignore
 
 log = logging.getLogger(__name__)
 
