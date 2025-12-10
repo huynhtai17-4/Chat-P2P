@@ -90,6 +90,10 @@ class MainWindow(QMainWindow):
         
         # Connect remove friend action from chat area
         self.center_panel.remove_friend_requested.connect(self.controller.remove_friend)
+        
+        # Connect call actions from chat area
+        self.center_panel.voice_call_requested.connect(self.controller.start_voice_call)
+        self.center_panel.video_call_requested.connect(self.controller.start_video_call)
 
         # Connect Add Friend by IP from right sidebar
         print("[MainWindow] Connecting add_friend_requested signal to controller.add_friend_by_ip")

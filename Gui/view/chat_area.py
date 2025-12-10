@@ -15,6 +15,8 @@ from Gui.controller.chat_area_controller import ChatAreaController
 class ChatArea(QFrame):
     # Signals
     remove_friend_requested = Signal(str)  # peer_id
+    voice_call_requested = Signal(str)  # peer_id
+    video_call_requested = Signal(str)  # peer_id
     
     def __init__(self):
         super().__init__()
@@ -131,12 +133,14 @@ class ChatArea(QFrame):
         self.phone_icon.setIconSize(QSize(22, 22))
         self.phone_icon.setFlat(True)
         self.phone_icon.setObjectName("IconButton")
+        self.phone_icon.clicked.connect(self._on_voice_call_clicked)
 
         self.video_icon = QPushButton()
         self.video_icon.setIcon(QIcon("Gui/assets/icons/video.svg"))
         self.video_icon.setIconSize(QSize(22, 22))
         self.video_icon.setFlat(True)
         self.video_icon.setObjectName("IconButton")
+        self.video_icon.clicked.connect(self._on_video_call_clicked)
 
         self.more_icon = QPushButton()
         self.more_icon.setIcon(QIcon("Gui/assets/icons/more-horizontal.svg"))
@@ -485,3 +489,13 @@ class ChatArea(QFrame):
         """Handle remove friend request"""
         if self.current_peer_id:
             self.remove_friend_requested.emit(self.current_peer_id)
+    
+    def _on_voice_call_clicked(self):
+        """Handle voice call button click"""
+        if self.current_peer_id:
+            self.voice_call_requested.emit(self.current_peer_id)
+    
+    def _on_video_call_clicked(self):
+        """Handle video call button click"""
+        if self.current_peer_id:
+            self.video_call_requested.emit(self.current_peer_id)

@@ -34,6 +34,13 @@ class MessageRouter:
         self._on_friend_request_callback: Optional[Callable[[str, str], None]] = None
         self._on_friend_accepted_callback: Optional[Callable[[str], None]] = None
         self._on_friend_rejected_callback: Optional[Callable[[str], None]] = None
+        
+        # Call callbacks
+        self._on_call_request_callback: Optional[Callable[[str, str, str, int, int, str], None]] = None
+        self._on_call_accept_callback: Optional[Callable[[str, int, int], None]] = None
+        self._on_call_reject_callback: Optional[Callable[[str], None]] = None
+        self._on_call_end_callback: Optional[Callable[[str], None]] = None
+        
         self._lock = threading.RLock()
         
         self._peers: Dict[str, PeerInfo] = {}
@@ -154,6 +161,18 @@ class MessageRouter:
             return
         elif msg_type == "HELLO_REPLY":
             self.message_handlers.handle_hello_reply(message, sender_ip)
+            return
+        elif msg_type == "CALL_REQUEST":
+            self.message_handlers.handle_call_request(message, sender_ip)
+            return
+        elif msg_type == "CALL_ACCEPT":
+            self.message_handlers.handle_call_accept(message, sender_ip)
+            return
+        elif msg_type == "CALL_REJECT":
+            self.message_handlers.handle_call_reject(message, sender_ip)
+            return
+        elif msg_type == "CALL_END":
+            self.message_handlers.handle_call_end(message, sender_ip)
             return
         
         # Block messages from peers not in friends list (after unfriend)
@@ -350,6 +369,22 @@ class MessageRouter:
     
     def set_friend_rejected_callback(self, callback: Optional[Callable[[str], None]]):
         self._on_friend_rejected_callback = callback
+    
+    def set_call_request_callback(self, callback: Optional[Callable[[str, str, str, int, int, str], None]]):
+        """Set callback for incoming call requests"""
+        self._on_call_request_callback = callback
+    
+    def set_call_accept_callback(self, callback: Optional[Callable[[str, int, int], None]]):
+        """Set callback for call accept"""
+        self._on_call_accept_callback = callback
+    
+    def set_call_reject_callback(self, callback: Optional[Callable[[str], None]]):
+        """Set callback for call reject"""
+        self._on_call_reject_callback = callback
+    
+    def set_call_end_callback(self, callback: Optional[Callable[[str], None]]):
+        """Set callback for call end"""
+        self._on_call_end_callback = callback
     
     def send_friend_request(self, peer_id: str) -> bool:
         return self.friend_request_manager.send_friend_request(peer_id)

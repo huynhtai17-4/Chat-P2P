@@ -163,3 +163,65 @@ class Message:
             content=json.dumps(reply_data),
             msg_type="HELLO_REPLY",
         )
+    
+    @classmethod
+    def create_call_request(cls, sender_id: str, sender_name: str, receiver_id: str,
+                           call_type: str, audio_port: int, video_port: int = 0) -> "Message":
+        """Create CALL_REQUEST message
+        Args:
+            call_type: 'voice' or 'video'
+            audio_port: UDP port for audio streaming
+            video_port: UDP port for video streaming (0 if voice-only)
+        """
+        import json
+        call_data = {
+            "call_type": call_type,
+            "audio_port": audio_port,
+            "video_port": video_port
+        }
+        return cls.create(
+            sender_id=sender_id,
+            sender_name=sender_name,
+            receiver_id=receiver_id,
+            content=json.dumps(call_data),
+            msg_type="CALL_REQUEST",
+        )
+    
+    @classmethod
+    def create_call_accept(cls, sender_id: str, sender_name: str, receiver_id: str,
+                          audio_port: int, video_port: int = 0) -> "Message":
+        """Create CALL_ACCEPT message with receiver's UDP ports"""
+        import json
+        accept_data = {
+            "audio_port": audio_port,
+            "video_port": video_port
+        }
+        return cls.create(
+            sender_id=sender_id,
+            sender_name=sender_name,
+            receiver_id=receiver_id,
+            content=json.dumps(accept_data),
+            msg_type="CALL_ACCEPT",
+        )
+    
+    @classmethod
+    def create_call_reject(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
+        """Create CALL_REJECT message"""
+        return cls.create(
+            sender_id=sender_id,
+            sender_name=sender_name,
+            receiver_id=receiver_id,
+            content="CALL_REJECT",
+            msg_type="CALL_REJECT",
+        )
+    
+    @classmethod
+    def create_call_end(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
+        """Create CALL_END message"""
+        return cls.create(
+            sender_id=sender_id,
+            sender_name=sender_name,
+            receiver_id=receiver_id,
+            content="CALL_END",
+            msg_type="CALL_END",
+        )

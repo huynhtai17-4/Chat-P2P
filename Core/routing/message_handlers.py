@@ -382,3 +382,79 @@ class MessageHandlers:
                 self.router._on_friend_rejected_callback(message.sender_id)
             except Exception as e:
                 log.error("Error in _on_friend_rejected_callback for %s: %s", message.sender_id, e, exc_info=True)
+    
+    # ====== Call Message Handlers ======
+    
+    def handle_call_request(self, message: Message, sender_ip: str = ""):
+        """Handle incoming call request"""
+        log.info("[Call] Received CALL_REQUEST from %s (%s)", message.sender_name, message.sender_id)
+        
+        try:
+            content_data = json.loads(message.content) if message.content else {}
+            call_type = content_data.get("call_type", "voice")
+            audio_port = content_data.get("audio_port", 0)
+            video_port = content_data.get("video_port", 0)
+            
+            log.info("[Call] Type: %s, Audio port: %s, Video port: %s", call_type, audio_port, video_port)
+            
+            # Notify via callback
+            if self.router._on_call_request_callback:
+                try:
+                    self.router._on_call_request_callback(
+                        message.sender_id,
+                        message.sender_name,
+                        call_type,
+                        audio_port,
+                        video_port,
+                        sender_ip
+                    )
+                except Exception as e:
+                    log.error("[Call] Error in call request callback: %s", e, exc_info=True)
+        except Exception as e:
+            log.error("[Call] Error handling CALL_REQUEST: %s", e, exc_info=True)
+    
+    def handle_call_accept(self, message: Message, sender_ip: str = ""):
+        """Handle call accept message"""
+        log.info("[Call] Received CALL_ACCEPT from %s (%s)", message.sender_name, message.sender_id)
+        
+        try:
+            content_data = json.loads(message.content) if message.content else {}
+            audio_port = content_data.get("audio_port", 0)
+            video_port = content_data.get("video_port", 0)
+            
+            log.info("[Call] Peer audio port: %s, video port: %s", audio_port, video_port)
+            
+            # Notify via callback
+            if self.router._on_call_accept_callback:
+                try:
+                    self.router._on_call_accept_callback(
+                        message.sender_id,
+                        audio_port,
+                        video_port
+                    )
+                except Exception as e:
+                    log.error("[Call] Error in call accept callback: %s", e, exc_info=True)
+        except Exception as e:
+            log.error("[Call] Error handling CALL_ACCEPT: %s", e, exc_info=True)
+    
+    def handle_call_reject(self, message: Message, sender_ip: str = ""):
+        """Handle call reject message"""
+        log.info("[Call] Received CALL_REJECT from %s (%s)", message.sender_name, message.sender_id)
+        
+        # Notify via callback
+        if self.router._on_call_reject_callback:
+            try:
+                self.router._on_call_reject_callback(message.sender_id)
+            except Exception as e:
+                log.error("[Call] Error in call reject callback: %s", e, exc_info=True)
+    
+    def handle_call_end(self, message: Message, sender_ip: str = ""):
+        """Handle call end message"""
+        log.info("[Call] Received CALL_END from %s (%s)", message.sender_name, message.sender_id)
+        
+        # Notify via callback
+        if self.router._on_call_end_callback:
+            try:
+                self.router._on_call_end_callback(message.sender_id)
+            except Exception as e:
+                log.error("[Call] Error in call end callback: %s", e, exc_info=True)

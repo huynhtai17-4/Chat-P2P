@@ -46,6 +46,13 @@ class MainWindowController(QObject):
         self.chat_core.signals.friend_accepted.connect(self._on_friend_accepted_signal)
         self.chat_core.signals.friend_rejected.connect(self._on_friend_rejected_signal)
         
+        # Connect call signals
+        self.chat_core.signals.call_request_received.connect(self._on_call_request_received)
+        self.chat_core.signals.call_accepted.connect(self._on_call_accepted)
+        self.chat_core.signals.call_rejected.connect(self._on_call_rejected)
+        self.chat_core.signals.call_ended.connect(self._on_call_ended)
+        self.chat_core.signals.remote_video_frame.connect(self._on_remote_video_frame)
+        
         self.peers: Dict[str, Dict] = {}
         self.unread_counts = defaultdict(int)
         self.current_peer_id: str = ""
@@ -53,6 +60,12 @@ class MainWindowController(QObject):
         self._preview_items = {}
         self.pending_friend_requests: Dict[str, str] = {}
         self._active_request_dialogs: Dict[str, QDialog] = {}
+        
+        # Call-related attributes
+        self._incoming_call_dialog: Optional[QDialog] = None
+        self._outgoing_call_dialog: Optional[QDialog] = None
+        self._active_call_window: Optional[QWidget] = None
+        self._call_peer_id: Optional[str] = None
         
         self._peer_refresh_timer = None
     
@@ -521,4 +534,213 @@ class MainWindowController(QObject):
         
         except Exception as e:
             log.error(f"[Controller] Error cleaning up orphaned folders: {e}", exc_info=True)
+    
+    # ====== Call Methods ======
+    
+    def start_voice_call(self, peer_id: str):
+        """Start a voice call with peer"""
+        log.info(f"[Controller] Starting voice call with {peer_id}")
+        
+        # Get peer info
+        peer = self.peers.get(peer_id)
+        if not peer:
+            log.warning(f"[Controller] Cannot call unknown peer")
+            return
+        
+        # Start call in core
+        success = self.chat_core.start_call(peer_id, "voice")
+        
+        if success:
+            self._call_peer_id = peer_id
+            
+            # Show outgoing call dialog
+            from Gui.view.call_dialog import OutgoingCallDialog
+            self._outgoing_call_dialog = OutgoingCallDialog(
+                peer["display_name"],
+                "voice",
+                parent=None
+            )
+            self._outgoing_call_dialog.call_cancelled.connect(self._on_outgoing_call_cancelled)
+            self._outgoing_call_dialog.show()
+        else:
+            QMessageBox.warning(
+                None,
+                "Call Failed",
+                "Failed to start call. Peer may be offline."
+            )
+    
+    def start_video_call(self, peer_id: str):
+        """Start a video call with peer"""
+        log.info(f"[Controller] Starting video call with {peer_id}")
+        
+        # Get peer info
+        peer = self.peers.get(peer_id)
+        if not peer:
+            log.warning(f"[Controller] Cannot call unknown peer")
+            return
+        
+        # Start call in core
+        success = self.chat_core.start_call(peer_id, "video")
+        
+        if success:
+            self._call_peer_id = peer_id
+            
+            # Show outgoing call dialog
+            from Gui.view.call_dialog import OutgoingCallDialog
+            self._outgoing_call_dialog = OutgoingCallDialog(
+                peer["display_name"],
+                "video",
+                parent=None
+            )
+            self._outgoing_call_dialog.call_cancelled.connect(self._on_outgoing_call_cancelled)
+            self._outgoing_call_dialog.show()
+        else:
+            QMessageBox.warning(
+                None,
+                "Call Failed",
+                "Failed to start call. Peer may be offline."
+            )
+    
+    def _on_call_request_received(self, peer_id: str, peer_name: str, call_type: str):
+        """Handle incoming call request"""
+        log.info(f"[Controller] Incoming {call_type} call from {peer_name}")
+        
+        self._call_peer_id = peer_id
+        
+        # Show incoming call dialog
+        from Gui.view.call_dialog import IncomingCallDialog
+        self._incoming_call_dialog = IncomingCallDialog(
+            peer_name,
+            call_type,
+            parent=None
+        )
+        self._incoming_call_dialog.call_accepted.connect(lambda: self._on_incoming_call_accepted(peer_id, call_type))
+        self._incoming_call_dialog.call_rejected.connect(lambda: self._on_incoming_call_rejected(peer_id))
+        self._incoming_call_dialog.show()
+    
+    def _on_incoming_call_accepted(self, peer_id: str, call_type: str):
+        """Handle accepting incoming call"""
+        log.info(f"[Controller] Accepting {call_type} call")
+        
+        # Close incoming dialog
+        if self._incoming_call_dialog:
+            self._incoming_call_dialog.close()
+            self._incoming_call_dialog = None
+        
+        # Accept call in core
+        success = self.chat_core.accept_call(peer_id)
+        
+        if success:
+            # Show active call window
+            peer = self.peers.get(peer_id)
+            peer_name = peer["display_name"] if peer else "Unknown"
+            
+            self._show_active_call_window(peer_name, call_type)
+        else:
+            QMessageBox.warning(
+                None,
+                "Call Failed",
+                "Failed to accept call."
+            )
+    
+    def _on_incoming_call_rejected(self, peer_id: str):
+        """Handle rejecting incoming call"""
+        log.info(f"[Controller] Rejecting call")
+        
+        # Close incoming dialog
+        if self._incoming_call_dialog:
+            self._incoming_call_dialog.close()
+            self._incoming_call_dialog = None
+        
+        # Reject call in core
+        self.chat_core.reject_call(peer_id)
+        self._call_peer_id = None
+    
+    def _on_outgoing_call_cancelled(self):
+        """Handle cancelling outgoing call"""
+        log.info(f"[Controller] Cancelling outgoing call")
+        
+        # Close outgoing dialog
+        if self._outgoing_call_dialog:
+            self._outgoing_call_dialog.close()
+            self._outgoing_call_dialog = None
+        
+        # End call in core
+        self.chat_core.end_call()
+        self._call_peer_id = None
+    
+    def _on_call_accepted(self, peer_id: str):
+        """Handle call accepted by peer"""
+        log.info(f"[Controller] Call accepted")
+        
+        # Close outgoing dialog
+        if self._outgoing_call_dialog:
+            self._outgoing_call_dialog.close()
+            self._outgoing_call_dialog = None
+        
+        # Show active call window
+        peer = self.peers.get(peer_id)
+        peer_name = peer["display_name"] if peer else "Unknown"
+        call_type = "video" if self.chat_core.call_manager.call_type.value == "video" else "voice"
+        
+        self._show_active_call_window(peer_name, call_type)
+    
+    def _on_call_rejected(self, peer_id: str):
+        """Handle call rejected by peer"""
+        log.info(f"[Controller] Call rejected")
+        
+        # Close outgoing dialog
+        if self._outgoing_call_dialog:
+            self._outgoing_call_dialog.close()
+            self._outgoing_call_dialog = None
+        
+        self._call_peer_id = None
+        
+        # Show message
+        QMessageBox.information(
+            None,
+            "Call Rejected",
+            "The call was rejected."
+        )
+    
+    def _on_call_ended(self, peer_id: str):
+        """Handle call ended by peer"""
+        log.info(f"[Controller] Call ended")
+        
+        # Close call window
+        if self._active_call_window:
+            self._active_call_window.close()
+            self._active_call_window = None
+        
+        self._call_peer_id = None
+    
+    def _on_remote_video_frame(self, frame_bytes: bytes):
+        """Handle remote video frame"""
+        if self._active_call_window and hasattr(self._active_call_window, 'update_remote_video_frame'):
+            self._active_call_window.update_remote_video_frame(frame_bytes)
+    
+    def _show_active_call_window(self, peer_name: str, call_type: str):
+        """Show active call window"""
+        from Gui.view.call_window import ActiveCallWindow
+        
+        self._active_call_window = ActiveCallWindow(
+            peer_name,
+            call_type,
+            parent=None
+        )
+        self._active_call_window.call_ended.connect(self._on_call_window_ended)
+        self._active_call_window.show()
+    
+    def _on_call_window_ended(self):
+        """Handle end call button in call window"""
+        log.info(f"[Controller] User ended call")
+        
+        # Close call window
+        if self._active_call_window:
+            self._active_call_window.close()
+            self._active_call_window = None
+        
+        # End call in core
+        self.chat_core.end_call()
+        self._call_peer_id = None
 
