@@ -6,7 +6,7 @@ import base64
 import time
 
 from PySide6.QtCore import QObject, Signal, QTimer, Slot
-from PySide6.QtWidgets import QMessageBox, QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QMessageBox, QDialog, QWidget
 
 from Core.core_api import ChatCore
 
@@ -46,7 +46,6 @@ class MainWindowController(QObject):
         self.chat_core.signals.friend_accepted.connect(self._on_friend_accepted_signal)
         self.chat_core.signals.friend_rejected.connect(self._on_friend_rejected_signal)
         
-        # Connect call signals
         self.chat_core.signals.call_request_received.connect(self._on_call_request_received)
         self.chat_core.signals.call_accepted.connect(self._on_call_accepted)
         self.chat_core.signals.call_rejected.connect(self._on_call_rejected)
@@ -61,7 +60,6 @@ class MainWindowController(QObject):
         self.pending_friend_requests: Dict[str, str] = {}
         self._active_request_dialogs: Dict[str, QDialog] = {}
         
-        # Call-related attributes
         self._incoming_call_dialog: Optional[QDialog] = None
         self._outgoing_call_dialog: Optional[QDialog] = None
         self._active_call_window: Optional[QWidget] = None
@@ -78,7 +76,6 @@ class MainWindowController(QObject):
         
         self._update_peers_from_core()
         
-        # Clean up orphaned chat folders (folders without corresponding peers)
         self._cleanup_orphaned_chat_folders()
         
         self._refresh_chat_list()
@@ -121,8 +118,6 @@ class MainWindowController(QObject):
         conversations = self._get_conversations()
         self.chat_list_updated.emit(conversations)
         
-        # Don't auto-select first peer - let user choose
-    
     def on_chat_selected(self, chat_id: str, chat_name: str):
         if not chat_id:
             return
@@ -130,20 +125,14 @@ class MainWindowController(QObject):
         self.unread_counts[chat_id] = 0
         history = self.chat_core.get_message_history(chat_id)
         self.load_chat_history.emit(chat_id, history)
-        # Emit chat_selected signal to update header
         self.chat_selected.emit(chat_id, chat_name)
         self._refresh_chat_list()
     
-    # Suggestions feature removed - no longer needed
-
     @Slot(str, int)
     def add_friend_by_ip(self, ip: str, port: int):
-        """Add a friend by IP address and port."""
         try:
-            print(f"[Controller] add_friend_by_ip called with IP={ip}, Port={port}, Type: {type(port)}")
-            log.info(f"[Controller] add_friend_by_ip called with IP={ip}, Port={port}, Type: {type(port)}")
+            log.info(f"[Controller] add_friend_by_ip called with IP={ip}, Port={port}")
             
-            # Convert port to int if it's a string
             if isinstance(port, str):
                 try:
                     port = int(port)
@@ -164,12 +153,9 @@ class MainWindowController(QObject):
                 self.show_message_box.emit("warning", "Add Friend", "Port must be between 1 and 65535.")
                 return
             
-            print(f"[Controller] [Add Friend] Attempting to add peer at {ip}:{port}")
             log.info(f"[Controller] [Add Friend] Attempting to add peer at {ip}:{port}")
             
-            print(f"[Controller] Calling chat_core.add_peer_by_ip...")
             success, result = self.chat_core.add_peer_by_ip(ip, port, display_name="Unknown")
-            print(f"[Controller] add_peer_by_ip returned: success={success}, result={result}")
             if success:
                 log.info(f"[Controller] [Add Friend] Successfully added peer at {ip}:{port}")
                 self.show_message_box.emit("info", "Add Friend", f"Added friend at {ip}:{port}")
@@ -179,9 +165,6 @@ class MainWindowController(QObject):
                 log.error(f"[Controller] [Add Friend] Failed to add peer at {ip}:{port}: {result}")
                 self.show_message_box.emit("warning", "Add Friend", f"Failed to add friend: {result}")
         except Exception as e:
-            print(f"[Controller] Exception in add_friend_by_ip: {e}")
-            import traceback
-            traceback.print_exc()
             log.error(f"[Controller] Exception in add_friend_by_ip: {e}", exc_info=True)
             self.show_message_box.emit("error", "Add Friend Error", f"An error occurred: {e}")
     
@@ -220,7 +203,6 @@ class MainWindowController(QObject):
         
         if message_text:
             try:
-                print(f"[Controller] Sending text message to peer_id={self.current_peer_id[:8]}")
                 success = self.chat_core.send_message(
                     self.current_peer_id,
                     message_text,
@@ -229,25 +211,17 @@ class MainWindowController(QObject):
                     file_data=None,
                     audio_data=None
                 )
-                print(f"[Controller] send_message returned: success={success}")
                 if success:
                     success_count += 1
-                    print(f"[Controller] success_count incremented to {success_count}")
-                else:
-                    print(f"[Controller] send_message failed!")
             except Exception as e:
-                print(f"[Controller] Exception in send_message: {e}")
-                import traceback
-                traceback.print_exc()
+                log.error(f"Exception in send_message: {e}", exc_info=True)
         
         if preview_items:
             self._preview_items = {}
             if hasattr(self, 'clear_preview_callback'):
                 self.clear_preview_callback()
         
-        print(f"[Controller] Send complete: success_count={success_count}, total_items={total_items}")
         if success_count == 0 and total_items > 0:
-            print(f"[Controller] Showing 'Failed to send' dialog")
             self.show_message_box.emit("warning", "Network error", "Failed to send message. Peer might be offline.")
         elif success_count > 0 and success_count < total_items:
             self.show_message_box.emit("warning", "Partial send", f"Sent {success_count}/{total_items} items. Some may have failed.")
@@ -329,17 +303,13 @@ class MainWindowController(QObject):
                 self.peers[peer_id] = peer_info
                 new_status = peer_info.get("status", "")
                 
-                # If status changed and this is the current peer, update header
                 if peer_id == self.current_peer_id and old_status != new_status:
                     peer_name = peer_info.get("display_name", "Unknown")
                     self.chat_selected.emit(peer_id, peer_name)
-                    # Also update header status directly
                     is_online = new_status == "online"
                     if hasattr(self, '_update_header_status_callback'):
                         self._update_header_status_callback(peer_id, is_online)
                 
-                # Update chat list to reflect status change
-                # Also emit signal to update status in list immediately
                 is_online = new_status == "online"
                 if hasattr(self, '_update_peer_status_callback'):
                     self._update_peer_status_callback(peer_id, is_online)
@@ -347,8 +317,6 @@ class MainWindowController(QObject):
                 self._refresh_chat_list()
         except Exception as e:
             import traceback
-    
-    # Temp peer signals removed - discovery feature removed
     
     def _on_friend_request_received_signal(self, peer_id: str, display_name: str):
         try:
@@ -439,39 +407,32 @@ class MainWindowController(QObject):
                 self._refresh_chat_list()
     
     def remove_friend(self, peer_id: str):
-        """Remove a friend from peer list"""
         try:
             log.info(f"[Controller] Removing friend {peer_id}")
             
-            # Get peer name
             peer_info = self.peers.get(peer_id, {})
             peer_name = peer_info.get('display_name', 'Unknown')
             
-            # Send OFFLINE to peer before removing (so they know we're gone)
             if self.chat_core.router and self.chat_core.router.status_broadcaster:
                 log.info(f"[Controller] Sending OFFLINE to {peer_name} before removing")
                 self.chat_core.router.status_broadcaster.send_status_to_peer(peer_id, "offline")
             
-            # Remove from router runtime first (to prevent reload from storage)
             if self.chat_core.router:
                 with self.chat_core.router._lock:
                     if peer_id in self.chat_core.router._peers:
                         del self.chat_core.router._peers[peer_id]
                         log.info(f"[Controller] Removed peer {peer_id} from router runtime")
             
-            # Remove from core storage
             if self.chat_core.router and self.chat_core.router.data_manager:
                 self.chat_core.router.data_manager.delete_peer(peer_id)
                 log.info(f"[Controller] Deleted peer {peer_id} from storage")
             
-            # Remove from controller runtime
             if peer_id in self.peers:
                 del self.peers[peer_id]
             
             if peer_id in self.unread_counts:
                 del self.unread_counts[peer_id]
             
-            # Also delete chat history folder completely
             if self.chat_core.router and self.chat_core.router.data_manager:
                 from pathlib import Path
                 import shutil
@@ -485,12 +446,10 @@ class MainWindowController(QObject):
                 else:
                     log.warning(f"[Controller] Chat folder does not exist: {chat_folder}")
             
-            # Clear current selection if this was the selected peer
             if self.current_peer_id == peer_id:
                 self.current_peer_id = None
                 self.load_chat_history.emit("", [])
             
-            # Sync peers from router to ensure consistency
             self._update_peers_from_core()
             
             self.show_message_box.emit("info", "Friend Removed", f"{peer_name} has been removed from your friends list.")
@@ -500,7 +459,6 @@ class MainWindowController(QObject):
             self.show_message_box.emit("error", "Error", f"Failed to remove friend: {e}")
     
     def _cleanup_orphaned_chat_folders(self):
-        """Remove chat folders that don't have corresponding peers in peers.json"""
         try:
             if not self.chat_core.router or not self.chat_core.router.data_manager:
                 return
@@ -512,15 +470,12 @@ class MainWindowController(QObject):
             if not chats_dir.exists():
                 return
             
-            # Get list of peer IDs from peers.json
             known_peer_ids = set(self.peers.keys())
             
-            # Check each folder in chats directory
             removed_count = 0
             for folder_path in chats_dir.iterdir():
                 if folder_path.is_dir():
                     folder_name = folder_path.name
-                    # If folder name (peer_id) is not in known peers, delete it
                     if folder_name not in known_peer_ids:
                         try:
                             shutil.rmtree(str(folder_path))
@@ -535,25 +490,19 @@ class MainWindowController(QObject):
         except Exception as e:
             log.error(f"[Controller] Error cleaning up orphaned folders: {e}", exc_info=True)
     
-    # ====== Call Methods ======
-    
     def start_voice_call(self, peer_id: str):
-        """Start a voice call with peer"""
         log.info(f"[Controller] Starting voice call with {peer_id}")
         
-        # Get peer info
         peer = self.peers.get(peer_id)
         if not peer:
             log.warning(f"[Controller] Cannot call unknown peer")
             return
         
-        # Start call in core
         success = self.chat_core.start_call(peer_id, "voice")
         
         if success:
             self._call_peer_id = peer_id
-            
-            # Show outgoing call dialog
+
             from Gui.view.call_dialog import OutgoingCallDialog
             self._outgoing_call_dialog = OutgoingCallDialog(
                 peer["display_name"],
@@ -570,22 +519,18 @@ class MainWindowController(QObject):
             )
     
     def start_video_call(self, peer_id: str):
-        """Start a video call with peer"""
         log.info(f"[Controller] Starting video call with {peer_id}")
         
-        # Get peer info
         peer = self.peers.get(peer_id)
         if not peer:
             log.warning(f"[Controller] Cannot call unknown peer")
             return
         
-        # Start call in core
         success = self.chat_core.start_call(peer_id, "video")
         
         if success:
             self._call_peer_id = peer_id
-            
-            # Show outgoing call dialog
+
             from Gui.view.call_dialog import OutgoingCallDialog
             self._outgoing_call_dialog = OutgoingCallDialog(
                 peer["display_name"],
@@ -602,12 +547,10 @@ class MainWindowController(QObject):
             )
     
     def _on_call_request_received(self, peer_id: str, peer_name: str, call_type: str):
-        """Handle incoming call request"""
         log.info(f"[Controller] Incoming {call_type} call from {peer_name}")
         
         self._call_peer_id = peer_id
         
-        # Show incoming call dialog
         from Gui.view.call_dialog import IncomingCallDialog
         self._incoming_call_dialog = IncomingCallDialog(
             peer_name,
@@ -619,19 +562,15 @@ class MainWindowController(QObject):
         self._incoming_call_dialog.show()
     
     def _on_incoming_call_accepted(self, peer_id: str, call_type: str):
-        """Handle accepting incoming call"""
         log.info(f"[Controller] Accepting {call_type} call")
         
-        # Close incoming dialog
         if self._incoming_call_dialog:
             self._incoming_call_dialog.close()
             self._incoming_call_dialog = None
         
-        # Accept call in core
         success = self.chat_core.accept_call(peer_id)
         
         if success:
-            # Show active call window
             peer = self.peers.get(peer_id)
             peer_name = peer["display_name"] if peer else "Unknown"
             
@@ -644,41 +583,32 @@ class MainWindowController(QObject):
             )
     
     def _on_incoming_call_rejected(self, peer_id: str):
-        """Handle rejecting incoming call"""
         log.info(f"[Controller] Rejecting call")
         
-        # Close incoming dialog
         if self._incoming_call_dialog:
             self._incoming_call_dialog.close()
             self._incoming_call_dialog = None
         
-        # Reject call in core
         self.chat_core.reject_call(peer_id)
         self._call_peer_id = None
     
     def _on_outgoing_call_cancelled(self):
-        """Handle cancelling outgoing call"""
         log.info(f"[Controller] Cancelling outgoing call")
         
-        # Close outgoing dialog
         if self._outgoing_call_dialog:
             self._outgoing_call_dialog.close()
             self._outgoing_call_dialog = None
         
-        # End call in core
         self.chat_core.end_call()
         self._call_peer_id = None
     
     def _on_call_accepted(self, peer_id: str):
-        """Handle call accepted by peer"""
         log.info(f"[Controller] Call accepted")
         
-        # Close outgoing dialog
         if self._outgoing_call_dialog:
             self._outgoing_call_dialog.close()
             self._outgoing_call_dialog = None
         
-        # Show active call window
         peer = self.peers.get(peer_id)
         peer_name = peer["display_name"] if peer else "Unknown"
         call_type = "video" if self.chat_core.call_manager.call_type.value == "video" else "voice"
@@ -686,17 +616,14 @@ class MainWindowController(QObject):
         self._show_active_call_window(peer_name, call_type)
     
     def _on_call_rejected(self, peer_id: str):
-        """Handle call rejected by peer"""
         log.info(f"[Controller] Call rejected")
         
-        # Close outgoing dialog
         if self._outgoing_call_dialog:
             self._outgoing_call_dialog.close()
             self._outgoing_call_dialog = None
         
         self._call_peer_id = None
         
-        # Show message
         QMessageBox.information(
             None,
             "Call Rejected",
@@ -704,10 +631,8 @@ class MainWindowController(QObject):
         )
     
     def _on_call_ended(self, peer_id: str):
-        """Handle call ended by peer"""
         log.info(f"[Controller] Call ended")
         
-        # Close call window
         if self._active_call_window:
             self._active_call_window.close()
             self._active_call_window = None
@@ -715,12 +640,10 @@ class MainWindowController(QObject):
         self._call_peer_id = None
     
     def _on_remote_video_frame(self, frame_bytes: bytes):
-        """Handle remote video frame"""
         if self._active_call_window and hasattr(self._active_call_window, 'update_remote_video_frame'):
             self._active_call_window.update_remote_video_frame(frame_bytes)
     
     def _show_active_call_window(self, peer_name: str, call_type: str):
-        """Show active call window"""
         from Gui.view.call_window import ActiveCallWindow
         
         self._active_call_window = ActiveCallWindow(
@@ -732,15 +655,12 @@ class MainWindowController(QObject):
         self._active_call_window.show()
     
     def _on_call_window_ended(self):
-        """Handle end call button in call window"""
         log.info(f"[Controller] User ended call")
         
-        # Close call window
         if self._active_call_window:
             self._active_call_window.close()
             self._active_call_window = None
         
-        # End call in core
         self.chat_core.end_call()
         self._call_peer_id = None
 

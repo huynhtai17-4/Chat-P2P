@@ -11,7 +11,6 @@ class FriendRequestManager:
         self.router = router
     
     def send_friend_request(self, peer_id: str) -> bool:
-        """Send friend request to a peer that must already be in friends list (added by IP)"""
         if not self.router.peer_listener or not self.router.peer_listener._thread or not self.router.peer_listener._thread.is_alive():
             log.error("PeerListener not running. Cannot send friend request.")
             return False
@@ -57,7 +56,6 @@ class FriendRequestManager:
         return success
     
     def send_friend_accept(self, peer_id: str) -> bool:
-        """Send friend accept to a peer that must already be in friends list"""
         if not self.router.peer_listener or not self.router.peer_listener._thread or not self.router.peer_listener._thread.is_alive():
             log.error("PeerListener not running. Cannot send friend accept.")
             return False
@@ -85,12 +83,10 @@ class FriendRequestManager:
             self.router._outgoing_requests.discard(peer_id)
             self.router._incoming_requests.discard(peer_id)
         
-        # Update storage
         if self.router.data_manager:
             self.router.data_manager.update_peer(peer_info)
             log.info("Updated peer %s (%s) after friend accept", peer_info.display_name, peer_id)
         
-        # Notify callback
         if self.router._on_peer_callback:
             try:
                 self.router._on_peer_callback(peer_info)
@@ -108,7 +104,6 @@ class FriendRequestManager:
         if success:
             log.info("Friend accept sent to %s (%s)", peer_info.display_name, peer_id)
             
-            # Send FRIEND_SYNC with our IP/port info
             try:
                 sync_message = Message.create_friend_sync(
                     sender_id=self.router.peer_id,
@@ -127,7 +122,6 @@ class FriendRequestManager:
         return success
     
     def send_friend_reject(self, peer_id: str) -> bool:
-        """Send friend reject to a peer that must already be in friends list"""
         if not self.router.peer_listener or not self.router.peer_listener._thread or not self.router.peer_listener._thread.is_alive():
             log.error("PeerListener not running. Cannot send friend reject.")
             return False

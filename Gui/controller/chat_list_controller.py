@@ -3,9 +3,9 @@ from PySide6.QtWidgets import QListWidgetItem
 from Gui.view.chat_item import ChatItemWidget
 
 class ChatListController(QObject):
-    chat_selected = Signal(str, str)  # chat_id, chat_name
-    tab_changed = Signal(str)  # tab_name
-    search_performed = Signal(str)  # search_text
+    chat_selected = Signal(str, str)
+    tab_changed = Signal(str)
+    search_performed = Signal(str)
     
     def __init__(self, chat_list_widget):
         super().__init__()

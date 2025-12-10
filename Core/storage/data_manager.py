@@ -61,7 +61,6 @@ class DataManager:
         return peers
 
     def save_peers(self, peers: Dict[str, PeerInfo]):
-        # Persist peers without runtime-only status
         serializable = {peer_id: info.to_dict() for peer_id, info in peers.items()}
         self._write_json(config.PEERS_FILENAME, serializable)
 
@@ -78,7 +77,6 @@ class DataManager:
         self.save_peers(peers)
     
     def delete_peer(self, peer_id: str):
-        """Delete a peer from storage"""
         import logging
         log = logging.getLogger(__name__)
         data = self._read_json(config.PEERS_FILENAME, {})

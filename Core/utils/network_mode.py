@@ -17,11 +17,11 @@ except ImportError:
     log.warning("psutil not available, using fallback network detection")
 
 VMWARE_NETWORKS = [
-    "192.168.234.",  # VMware
-    "192.168.235.",  # VMware NAT
-    "192.168.56.",   # VirtualBox
-    "192.168.122.",  # libvirt
-    "169.254.",      # Link-local
+    "192.168.234.",
+    "192.168.235.",
+    "192.168.56.",
+    "192.168.122.",
+    "169.254.",
 ]
 
 NETWORK_MODE_SINGLE = "single_machine"
@@ -76,13 +76,10 @@ def _get_all_network_ips() -> List[Tuple[str, str]]:
         except Exception as e:
             log.warning("Failed to enumerate network interfaces with psutil: %s", e)
     else:
-        # Fallback: Read from system commands or socket.getaddrinfo
-        print("[Network] psutil not available, using fallback IP detection")
+        log.debug("psutil not available, using fallback IP detection")
         
-        # Try to read from `ip addr` command on Linux
         if platform.system() == "Linux":
             try:
-                print("[Network] Trying `ip addr` command...")
                 result = subprocess.run(
                     ["ip", "addr", "show"],
                     capture_output=True,
@@ -91,60 +88,46 @@ def _get_all_network_ips() -> List[Tuple[str, str]]:
                 )
                 if result.returncode == 0:
                     import re
-                    # Parse output: inet 192.168.x.x/24 ...
                     lines = result.stdout.split('\n')
                     current_interface = None
                     for line in lines:
-                        # Match interface name
                         if_match = re.match(r'^\d+:\s+(\S+):', line)
                         if if_match:
                             current_interface = if_match.group(1)
-                        # Match inet address
                         inet_match = re.search(r'inet\s+(\d+\.\d+\.\d+\.\d+)', line)
                         if inet_match and current_interface:
                             ip = inet_match.group(1)
                             if ip and ip != "127.0.0.1" and not ip.startswith("127."):
-                                print(f"[Network] Found IP from `ip addr`: {ip} ({current_interface})")
                                 ips.append((current_interface, ip))
             except Exception as e:
-                print(f"[Network] `ip addr` command failed: {e}")
+                log.debug(f"`ip addr` command failed: {e}")
         
-        # Try hostname resolution
         try:
             hostname = socket.gethostname()
-            print(f"[Network] Hostname: {hostname}")
             
-            # Get all IPs associated with hostname
             try:
                 addr_infos = socket.getaddrinfo(hostname, None, socket.AF_INET)
                 for addr_info in addr_infos:
                     ip = addr_info[4][0]
                     if ip and ip != "127.0.0.1" and not ip.startswith("127."):
-                        print(f"[Network] Found IP from hostname: {ip}")
-                        # Only add if not already in list
                         if not any(existing_ip == ip for _, existing_ip in ips):
                             ips.append(("hostname", ip))
             except Exception as e:
-                print(f"[Network] getaddrinfo failed: {e}")
+                log.debug(f"getaddrinfo failed: {e}")
             
-            # Also try socket trick (may return NAT IP but better than nothing)
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
                     s.connect(("8.8.8.8", 80))
                     ip = s.getsockname()[0]
                     if ip and ip != "127.0.0.1":
-                        print(f"[Network] Found IP from socket trick: {ip}")
-                        # Only add if not already in list
                         if not any(existing_ip == ip for _, existing_ip in ips):
                             ips.append(("socket", ip))
             except Exception as e:
-                print(f"[Network] Socket trick failed: {e}")
+                log.debug(f"Socket trick failed: {e}")
                 
         except Exception as e:
-            print(f"[Network] Fallback IP detection failed: {e}")
             log.warning("Failed to get network IP with fallback: %s", e)
     
-    print(f"[Network] Found {len(ips)} IPs: {[ip for _, ip in ips]}")
     return ips
 
 def _count_running_instances() -> int:
@@ -218,14 +201,12 @@ def detect_network_mode() -> str:
     return NETWORK_MODE_LAN
 
 def get_local_ip(network_mode: Optional[str] = None) -> str:
-    """Get local IP address - prioritize private IP over public"""
     all_ips = _get_all_network_ips()
     
     if not all_ips:
         log.warning("No network interfaces found")
         return ""
     
-    # Filter out virtual adapters
     valid_ips = []
     for name, ip in all_ips:
         if not _is_virtual_adapter(ip) and not ip.startswith("127."):
@@ -235,20 +216,16 @@ def get_local_ip(network_mode: Optional[str] = None) -> str:
         log.warning("Only virtual adapters found")
         return ""
     
-    # Prioritize private IPs (RFC 1918)
-    # 1. 192.168.x.x (most common home/office)
     for name, ip in valid_ips:
         if ip.startswith("192.168."):
             log.info("Selected private IP (192.168.x.x): %s (%s)", ip, name)
             return ip
     
-    # 2. 10.x.x.x
     for name, ip in valid_ips:
         if ip.startswith("10."):
             log.info("Selected private IP (10.x.x.x): %s (%s)", ip, name)
             return ip
     
-    # 3. 172.16-31.x.x
     for name, ip in valid_ips:
         if ip.startswith("172."):
             try:
@@ -259,7 +236,6 @@ def get_local_ip(network_mode: Optional[str] = None) -> str:
             except (ValueError, IndexError):
                 continue
     
-    # 4. CGNAT range 100.64.0.0/10 (Carrier-Grade NAT - RFC 6598)
     for name, ip in valid_ips:
         if ip.startswith("100."):
             try:
@@ -270,12 +246,10 @@ def get_local_ip(network_mode: Optional[str] = None) -> str:
             except (ValueError, IndexError):
                 continue
     
-    # 5. If any other IP exists (could be public IP)
     for name, ip in valid_ips:
         log.info("Selected IP (public or other): %s (%s)", ip, name)
         return ip
     
-    # No valid IP found
     log.warning("No valid network IP found")
     return ""
 

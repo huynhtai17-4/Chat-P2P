@@ -61,7 +61,6 @@ class StatusBroadcaster:
         log.info("[STATUS] Broadcast complete: %s/%s sent successfully", sent_count, len(friends))
     
     def send_status_to_peer(self, peer_id: str, status: str):
-        """Send ONLINE/OFFLINE status to a specific peer"""
         if status not in ("online", "offline"):
             log.warning("[STATUS] Invalid status: %s", status)
             return False

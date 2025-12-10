@@ -18,9 +18,9 @@ from PySide6.QtWidgets import (
 
 class ChatAreaController(QObject):
 
-    file_attached = Signal(str, str, str, bool)  # file_path, file_name, file_data_base64, is_image
-    emoji_selected = Signal(str)      # emoji_character
-    message_sent = Signal(str)        # message_text
+    file_attached = Signal(str, str, str, bool)
+    emoji_selected = Signal(str)
+    message_sent = Signal(str)
 
     def __init__(self, chat_area_widget):
         super().__init__()
@@ -74,7 +74,6 @@ class ChatAreaController(QObject):
                     with open(file_path, 'rb') as f:
                         file_data = f.read()
                     
-                    # Ensure binary read
                     if isinstance(file_data, str):
                         file_data = file_data.encode('utf-8')
                         
@@ -143,8 +142,8 @@ class ChatAreaController(QObject):
             max_cols = 8
             for emoji in emojis:
                 emoji_btn = QPushButton(emoji)
+                emoji_btn.setObjectName("EmojiButton")
                 emoji_btn.setFixedSize(45, 45)
-                emoji_btn.setStyleSheet("QPushButton { border: none; background: transparent; font-size: 24px; } QPushButton:hover { background-color: rgba(0,0,0,0.1); }")
                 emoji_btn.clicked.connect(
                     lambda checked=False, e=emoji, dlg=emoji_dialog: self._on_emoji_selected(e, dlg)
                 )
@@ -160,6 +159,7 @@ class ChatAreaController(QObject):
             tab_widget.addTab(scroll_area, category_name)
 
         close_btn = QPushButton("Đóng")
+        close_btn.setObjectName("EmojiCloseButton")
         close_btn.setFixedSize(100, 35)
         close_btn.clicked.connect(emoji_dialog.close)
 

@@ -13,39 +13,28 @@ class MessageHandlers:
         self.router = router
     
     def handle_hello(self, message: Message, sender_ip: str = "", sender_port: int = 0):
-        """Handle HELLO handshake - reply with HELLO_REPLY containing our peer info"""
-        print(f"[HELLO] Received from {message.sender_name} ({message.sender_id[:8]}) at {sender_ip}:{sender_port}")
-        print(f"[HELLO] My peer_id={self.router.peer_id[:8]}, sender_id={message.sender_id[:8]}")
-        log.info("[HELLO] Received from %s (%s) at %s:%s (socket)", message.sender_name, message.sender_id, sender_ip, sender_port)
-        log.info("[HELLO] My peer_id=%s, sender_id=%s", self.router.peer_id, message.sender_id)
+        log.info("[HELLO] Received from %s (%s) at %s:%s", message.sender_name, message.sender_id, sender_ip, sender_port)
         
-        # Ignore HELLO from ourselves (loopback)
         if message.sender_id == self.router.peer_id:
-            print("[HELLO] Ignoring HELLO from myself (loopback)")
             log.warning("[HELLO] Ignoring HELLO from myself (loopback)")
             return
         
-        # Extract sender's real IP and TCP port from message content
         sender_tcp_port = 0
-        sender_real_ip = sender_ip  # Default to socket IP
+        sender_real_ip = sender_ip
         try:
             content_data = json.loads(message.content) if message.content else {}
             sender_tcp_port = content_data.get("tcp_port", 0)
-            sender_real_ip = content_data.get("sender_ip", sender_ip)  # Use sender's real IP if provided
-            print(f"[HELLO] Extracted sender_ip={sender_real_ip}, tcp_port={sender_tcp_port}")
+            sender_real_ip = content_data.get("sender_ip", sender_ip)
             log.info("[HELLO] Extracted sender_ip=%s, tcp_port=%s from message", sender_real_ip, sender_tcp_port)
         except:
-            print(f"[HELLO] Could not extract from message, using socket values: {sender_ip}:{sender_port}")
             log.warning("[HELLO] Could not extract from HELLO message, using socket: %s:%s", sender_ip, sender_port)
             sender_tcp_port = sender_port
         
-        # Reply with our peer info
         try:
-            # Use our local IP for the reply
             import socket
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.connect((sender_ip, 80))  # Use port 80 just to get route
+                s.connect((sender_ip, 80))
                 local_ip = s.getsockname()[0]
                 s.close()
             except:
@@ -59,33 +48,21 @@ class MessageHandlers:
                 peer_tcp_port=self.router.tcp_port
             )
             
-            print(f"[HELLO] Replying with: peer_id={self.router.peer_id[:8]}, name={self.router.display_name}, ip={local_ip}, port={self.router.tcp_port}")
             log.info("[HELLO] Replying with our info: peer_id=%s, name=%s, ip=%s, port=%s", 
                     self.router.peer_id, self.router.display_name, local_ip, self.router.tcp_port)
             
-            # Send reply back to sender's real IP and TCP port
-            print(f"[HELLO] Sending HELLO_REPLY to {sender_real_ip}:{sender_tcp_port}")
-            log.info("[HELLO] Sending HELLO_REPLY to %s:%s (sender's real address)", sender_real_ip, sender_tcp_port)
             success = self.router.peer_client.send(sender_real_ip, sender_tcp_port, reply_msg)
             if success:
-                print(f"[HELLO] ✓ Successfully sent HELLO_REPLY to {sender_real_ip}:{sender_tcp_port}")
                 log.info("[HELLO] Successfully sent HELLO_REPLY to %s:%s", sender_real_ip, sender_tcp_port)
             else:
-                print(f"[HELLO] ✗ Failed to send HELLO_REPLY to {sender_real_ip}:{sender_tcp_port}")
                 log.warning("[HELLO] Failed to send HELLO_REPLY to %s:%s", sender_real_ip, sender_tcp_port)
         except Exception as e:
             log.error("[HELLO] Error sending HELLO_REPLY: %s", e, exc_info=True)
     
     def handle_hello_reply(self, message: Message, sender_ip: str = ""):
-        """Handle HELLO_REPLY - update peer info with actual peer_id and details"""
-        print(f"[HELLO_REPLY] Received from {message.sender_name} ({message.sender_id[:8]}) at {sender_ip}")
-        print(f"[HELLO_REPLY] My peer_id={self.router.peer_id[:8]}, sender_id={message.sender_id[:8]}")
         log.info("[HELLO_REPLY] Received from %s (%s) at %s", message.sender_name, message.sender_id, sender_ip)
-        log.info("[HELLO_REPLY] My peer_id=%s, sender_id=%s", self.router.peer_id, message.sender_id)
         
-        # Ignore HELLO_REPLY from ourselves (loopback)
         if message.sender_id == self.router.peer_id:
-            print("[HELLO_REPLY] Ignoring HELLO_REPLY from myself (loopback)")
             log.warning("[HELLO_REPLY] Ignoring HELLO_REPLY from myself (loopback)")
             return
         
@@ -105,11 +82,8 @@ class MessageHandlers:
             
             old_peer_id = None
             with self.router._lock:
-                # Find temp peer (the one we created when adding by IP)
-                # Match by IP and Port from the HELLO_REPLY data
                 temp_peer_entry = None
                 for pid, peer in list(self.router._peers.items()):
-                    # Check if this is our temp peer by matching IP:Port we added
                     if peer.ip == peer_ip and peer.tcp_port == peer_tcp_port:
                         temp_peer_entry = (pid, peer)
                         log.info("[HELLO_REPLY] Found matching peer by IP:Port - peer_id=%s", pid)
@@ -117,18 +91,14 @@ class MessageHandlers:
                 
                 if temp_peer_entry:
                     old_peer_id, old_peer = temp_peer_entry
-                    # If temp peer_id is different from actual, replace it
                     if old_peer_id != actual_peer_id:
                         del self.router._peers[old_peer_id]
                         log.info("[HELLO_REPLY] Replacing temp peer_id %s with actual %s", old_peer_id, actual_peer_id)
-                        # Also remove from emitted set if exists
                         self.router._friend_request_emitted.discard(old_peer_id)
-                        # DELETE old peer from storage
                         if self.router.data_manager:
                             self.router.data_manager.delete_peer(old_peer_id)
                             log.info("[HELLO_REPLY] Deleted temp peer %s from storage", old_peer_id)
                 
-                # Create or update peer with actual info
                 if actual_peer_id in self.router._peers:
                     peer_info = self.router._peers[actual_peer_id]
                     log.info("[HELLO_REPLY] Updating existing peer %s", actual_peer_id)
@@ -143,17 +113,14 @@ class MessageHandlers:
                     self.router._peers[actual_peer_id] = peer_info
                     log.info("[HELLO_REPLY] Created new peer %s", actual_peer_id)
                 
-                # Always update fields
                 peer_info.display_name = display_name
                 peer_info.ip = peer_ip
                 peer_info.tcp_port = peer_tcp_port
                 
-                # Save to storage
                 if self.router.data_manager:
                     self.router.data_manager.update_peer(peer_info)
                     log.info("[HELLO_REPLY] Saved peer %s (%s)", display_name, actual_peer_id)
                 
-                # Notify callback to update UI
                 if self.router._on_peer_callback:
                     try:
                         self.router._on_peer_callback(peer_info)
@@ -161,7 +128,6 @@ class MessageHandlers:
                     except Exception as e:
                         log.error("[HELLO_REPLY] Error in peer callback: %s", e, exc_info=True)
             
-            # Send FRIEND_REQUEST to notify the peer
             log.info("[HELLO_REPLY] Sending FRIEND_REQUEST to %s (%s)", display_name, actual_peer_id)
             from .friend_request_manager import FriendRequestManager
             friend_mgr = FriendRequestManager(self.router)
@@ -169,7 +135,6 @@ class MessageHandlers:
             if success:
                 log.info("[HELLO_REPLY] Successfully sent FRIEND_REQUEST to %s", actual_peer_id)
                 
-                # Send ONLINE status to the newly added peer
                 log.info("[HELLO_REPLY] Sending ONLINE status to %s", actual_peer_id)
                 from .status_broadcaster import StatusBroadcaster
                 status_mgr = StatusBroadcaster(self.router)
@@ -181,10 +146,8 @@ class MessageHandlers:
             log.error("[HELLO_REPLY] Failed to parse: %s", e, exc_info=True)
     
     def handle_friend_request(self, message: Message, sender_ip: str = ""):
-        """Handle friend request - if peer not in list, auto-add them"""
         log.info("[FRIEND_REQUEST] From %s (%s) at %s", message.sender_name, message.sender_id, sender_ip)
         
-        # Extract tcp_port from message content
         peer_tcp_port = 0
         try:
             content_data = json.loads(message.content) if message.content else {}
@@ -195,7 +158,6 @@ class MessageHandlers:
         
         with self.router._lock:
             if message.sender_id in self.router._peers:
-                # Already a friend - update info if needed
                 peer = self.router._peers[message.sender_id]
                 if sender_ip and sender_ip != "0.0.0.0":
                     peer.ip = sender_ip
@@ -204,7 +166,6 @@ class MessageHandlers:
                 log.info("[FRIEND_REQUEST] Updated existing peer %s: ip=%s, port=%s", 
                         message.sender_id, peer.ip, peer.tcp_port)
             else:
-                # Auto-add the peer who sent friend request
                 log.info("[FRIEND_REQUEST] Auto-adding new peer %s (%s)", message.sender_name, message.sender_id)
                 
                 peer = PeerInfo(
@@ -220,7 +181,6 @@ class MessageHandlers:
                     self.router.data_manager.update_peer(peer)
                     log.info("[FRIEND_REQUEST] Saved new peer %s to storage", message.sender_name)
                 
-                # Notify peer callback to update UI
                 if self.router._on_peer_callback:
                     try:
                         self.router._on_peer_callback(peer)
@@ -228,20 +188,17 @@ class MessageHandlers:
                     except Exception as e:
                         log.error("[FRIEND_REQUEST] Error in peer callback: %s", e)
                 
-                # Send ONLINE status to the newly added peer
                 log.info("[FRIEND_REQUEST] Sending ONLINE status to %s", message.sender_id)
                 from .status_broadcaster import StatusBroadcaster
                 status_mgr = StatusBroadcaster(self.router)
                 status_mgr.send_status_to_peer(message.sender_id, "online")
             
-            # Track incoming request
             if message.sender_id in self.router._incoming_requests:
                 log.info("[FRIEND_REQUEST] Already in incoming_requests: %s", message.sender_id)
             else:
                 self.router._incoming_requests.add(message.sender_id)
                 log.info("[FRIEND_REQUEST] Added to incoming_requests: %s", message.sender_id)
         
-        # Always emit friend request callback (don't track emitted to allow re-requesting)
         log.info("[FRIEND_REQUEST] Calling friend_request_callback for %s", message.sender_id)
         if self.router._on_friend_request_callback:
             try:
@@ -253,7 +210,6 @@ class MessageHandlers:
             log.warning("[FRIEND_REQUEST] No callback registered!")
     
     def handle_friend_accept(self, message: Message, sender_ip: str = ""):
-        """Handle friend accept - peer must already be in friends list"""
         log.info("Friend accepted by %s (%s)", message.sender_name, message.sender_id)
         
         with self.router._lock:
@@ -270,12 +226,10 @@ class MessageHandlers:
             self.router._incoming_requests.discard(message.sender_id)
             self.router._friend_request_emitted.discard(message.sender_id)
         
-        # Update storage
         if self.router.data_manager:
             self.router.data_manager.update_peer(peer_info)
             log.info("Updated peer %s (%s) after friend accept", peer_info.display_name, message.sender_id)
         
-        # Notify callbacks
         if self.router._on_peer_callback:
             try:
                 self.router._on_peer_callback(peer_info)
@@ -289,7 +243,6 @@ class MessageHandlers:
                 log.error("Error in _on_friend_accepted_callback for %s: %s", message.sender_id, e, exc_info=True)
     
     def handle_friend_sync(self, message: Message, sender_ip: str = ""):
-        """Handle FRIEND_SYNC - update peer IP/port info"""
         log.info("FRIEND_SYNC received from %s (%s)", message.sender_name, message.sender_id)
         
         try:
@@ -325,7 +278,6 @@ class MessageHandlers:
             log.error("Failed to parse FRIEND_SYNC from %s: %s", message.sender_id, e)
     
     def handle_status_message(self, message: Message, sender_ip: str = ""):
-        """Handle ONLINE/OFFLINE status messages"""
         msg_type = message.msg_type
         log.info("[STATUS] Received %s from %s (%s) at IP %s", 
                 msg_type, message.sender_name, message.sender_id, sender_ip)
@@ -349,8 +301,6 @@ class MessageHandlers:
                     peer.display_name, message.sender_id, old_status, new_status,
                     peer.ip, peer.tcp_port)
             
-            # If we received ONLINE and our status changed from offline to online,
-            # reply back with our ONLINE status to ensure mutual awareness
             if msg_type == "ONLINE" and old_status != "online":
                 log.info("[STATUS] Replying ONLINE back to %s", peer.display_name)
                 try:
@@ -364,7 +314,6 @@ class MessageHandlers:
                 except Exception as e:
                     log.debug("[STATUS] Failed to send ONLINE reply to %s: %s", peer.display_name, e)
             
-            # Trigger UI update
             if self.router._on_peer_callback:
                 try:
                     self.router._on_peer_callback(peer)
@@ -373,7 +322,6 @@ class MessageHandlers:
                     log.error("[STATUS] ✗ Error in peer callback for %s: %s", message.sender_id, e, exc_info=True)
     
     def handle_friend_reject(self, message: Message):
-        """Handle friend reject"""
         log.info("Friend rejected by %s (%s)", message.sender_name, message.sender_id)
         with self.router._lock:
             self.router._outgoing_requests.discard(message.sender_id)
@@ -383,10 +331,7 @@ class MessageHandlers:
             except Exception as e:
                 log.error("Error in _on_friend_rejected_callback for %s: %s", message.sender_id, e, exc_info=True)
     
-    # ====== Call Message Handlers ======
-    
     def handle_call_request(self, message: Message, sender_ip: str = ""):
-        """Handle incoming call request"""
         log.info("[Call] Received CALL_REQUEST from %s (%s)", message.sender_name, message.sender_id)
         
         try:
@@ -397,7 +342,6 @@ class MessageHandlers:
             
             log.info("[Call] Type: %s, Audio port: %s, Video port: %s", call_type, audio_port, video_port)
             
-            # Notify via callback
             if self.router._on_call_request_callback:
                 try:
                     self.router._on_call_request_callback(
@@ -414,7 +358,6 @@ class MessageHandlers:
             log.error("[Call] Error handling CALL_REQUEST: %s", e, exc_info=True)
     
     def handle_call_accept(self, message: Message, sender_ip: str = ""):
-        """Handle call accept message"""
         log.info("[Call] Received CALL_ACCEPT from %s (%s)", message.sender_name, message.sender_id)
         
         try:
@@ -424,7 +367,6 @@ class MessageHandlers:
             
             log.info("[Call] Peer audio port: %s, video port: %s", audio_port, video_port)
             
-            # Notify via callback
             if self.router._on_call_accept_callback:
                 try:
                     self.router._on_call_accept_callback(
@@ -438,10 +380,8 @@ class MessageHandlers:
             log.error("[Call] Error handling CALL_ACCEPT: %s", e, exc_info=True)
     
     def handle_call_reject(self, message: Message, sender_ip: str = ""):
-        """Handle call reject message"""
         log.info("[Call] Received CALL_REJECT from %s (%s)", message.sender_name, message.sender_id)
         
-        # Notify via callback
         if self.router._on_call_reject_callback:
             try:
                 self.router._on_call_reject_callback(message.sender_id)
@@ -449,10 +389,8 @@ class MessageHandlers:
                 log.error("[Call] Error in call reject callback: %s", e, exc_info=True)
     
     def handle_call_end(self, message: Message, sender_ip: str = ""):
-        """Handle call end message"""
         log.info("[Call] Received CALL_END from %s (%s)", message.sender_name, message.sender_id)
         
-        # Notify via callback
         if self.router._on_call_end_callback:
             try:
                 self.router._on_call_end_callback(message.sender_id)

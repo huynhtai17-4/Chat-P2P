@@ -1,6 +1,3 @@
-"""
-UDP Streaming for real-time audio/video transmission
-"""
 from __future__ import annotations
 
 import socket
@@ -12,27 +9,21 @@ import struct
 log = logging.getLogger(__name__)
 
 class UDPSender:
-    """Send audio/video data via UDP"""
-    
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.target_ip: Optional[str] = None
         self.target_port: Optional[int] = None
         
     def set_target(self, ip: str, port: int):
-        """Set destination for UDP packets"""
         self.target_ip = ip
         self.target_port = port
         log.info(f"[UDPSender] Target set to {ip}:{port}")
     
     def send(self, data: bytes) -> bool:
-        """Send data to target"""
         if not self.target_ip or not self.target_port:
             return False
         
         try:
-            # Add sequence number for packet ordering
-            # Format: [4 bytes seq_num][data]
             if not hasattr(self, '_seq_num'):
                 self._seq_num = 0
             
@@ -46,7 +37,6 @@ class UDPSender:
             return False
     
     def close(self):
-        """Close UDP socket"""
         try:
             self.sock.close()
         except:
@@ -54,14 +44,7 @@ class UDPSender:
 
 
 class UDPReceiver:
-    """Receive audio/video data via UDP"""
-    
     def __init__(self, port: int, on_data: Callable[[bytes], None]):
-        """
-        Args:
-            port: UDP port to listen on
-            on_data: Callback when data received (gets raw bytes)
-        """
         self.port = port
         self.on_data = on_data
         self.sock: Optional[socket.socket] = None
@@ -70,7 +53,6 @@ class UDPReceiver:
         self._running = False
     
     def start(self) -> bool:
-        """Start receiving UDP packets"""
         if self._running:
             return True
         
@@ -78,7 +60,7 @@ class UDPReceiver:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.sock.bind(("0.0.0.0", self.port))
-            self.sock.settimeout(1.0)  # Timeout for clean shutdown
+            self.sock.settimeout(1.0)
             
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._receive_loop, daemon=True)
@@ -92,7 +74,6 @@ class UDPReceiver:
             return False
     
     def stop(self):
-        """Stop receiving"""
         self._stop_event.set()
         self._running = False
         
@@ -108,21 +89,18 @@ class UDPReceiver:
         log.info(f"[UDPReceiver] Stopped on port {self.port}")
     
     def _receive_loop(self):
-        """Main loop to receive UDP packets"""
-        buffer_size = 65536  # Max UDP packet size
+        buffer_size = 65536
         
         while not self._stop_event.is_set():
             try:
                 data, addr = self.sock.recvfrom(buffer_size)
                 
-                # Extract sequence number (first 4 bytes)
                 if len(data) < 4:
                     continue
                 
                 seq_num = struct.unpack('!I', data[:4])[0]
                 payload = data[4:]
                 
-                # Call callback with payload (without seq_num)
                 if self.on_data:
                     try:
                         self.on_data(payload)

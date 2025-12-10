@@ -12,8 +12,6 @@ class PeerManager:
         self.router = router
     
     def add_peer(self, peer_id: str) -> bool:
-        # Legacy method - no longer used with Add Friend by IP
-        # Kept for compatibility
         with self.router._lock:
             if peer_id in self.router._peers:
                 log.info("Peer %s already in friends list", peer_id)
@@ -27,15 +25,12 @@ class PeerManager:
             return list(self.router._peers.values())
     
     def get_temp_discovered_peers(self) -> List[PeerInfo]:
-        # Discovery removed - return empty list
         return []
     
     def remove_temp_peer(self, peer_id: str) -> bool:
-        # Discovery removed - no temp peers to remove
         return False
     
     def cleanup_offline_peers(self, max_offline_time: float = 600.0) -> int:
-        # Disabled offline cleanup (no heartbeat/last_seen based removal)
         return 0
     
     def notify_existing_peers(self):

@@ -34,8 +34,7 @@ class MessageRouter:
         self._on_friend_request_callback: Optional[Callable[[str, str], None]] = None
         self._on_friend_accepted_callback: Optional[Callable[[str], None]] = None
         self._on_friend_rejected_callback: Optional[Callable[[str], None]] = None
-        
-        # Call callbacks
+
         self._on_call_request_callback: Optional[Callable[[str, str, str, int, int, str], None]] = None
         self._on_call_accept_callback: Optional[Callable[[str, int, int], None]] = None
         self._on_call_reject_callback: Optional[Callable[[str], None]] = None
@@ -175,7 +174,6 @@ class MessageRouter:
             self.message_handlers.handle_call_end(message, sender_ip)
             return
         
-        # Block messages from peers not in friends list (after unfriend)
         with self._lock:
             if message.sender_id not in self._peers:
                 log.debug("[BLOCK] Ignored message from %s (not in friends list)", message.sender_id)
@@ -213,27 +211,19 @@ class MessageRouter:
         with self._lock:
             target = self._peers.get(to_peer_id)
         
-        print(f"[Router] send_message: to_peer_id={to_peer_id[:8]}, target={target}")
-        
         if not target:
-            print(f"[Router] ✗ Peer {to_peer_id[:8]} not in friends list")
             log.warning("Cannot send message to %s: Peer not in friends list", to_peer_id)
             return False, None
-
-        print(f"[Router] Target peer: name={target.display_name}, ip={target.ip}, port={target.tcp_port}, status={target.status}")
         
         if not target.ip or not target.tcp_port:
-            print(f"[Router] ✗ Invalid IP or port: ip={target.ip}, port={target.tcp_port}")
             log.warning("Cannot send message to %s: Invalid IP (%s) or port (%s)", to_peer_id, target.ip, target.tcp_port)
             return False, None
 
         if target.ip == "0.0.0.0" or target.ip == "":
-            print(f"[Router] ✗ Invalid IP address: {target.ip}")
             log.warning("Cannot send message to %s: Invalid IP address", to_peer_id)
             return False, None
 
         if target.tcp_port == 0 or target.tcp_port < 55000 or target.tcp_port > 55199:
-            print(f"[Router] ✗ Invalid port: {target.tcp_port}")
             log.warning("Cannot send message to %s: Invalid port %s", to_peer_id, target.tcp_port)
             return False, None
 
@@ -248,10 +238,8 @@ class MessageRouter:
             audio_data=audio_data,
         )
 
-        print(f"[Router] Sending message to {target.display_name} ({to_peer_id[:8]}) at {target.ip}:{target.tcp_port}")
         log.info("Sending message to %s (%s) at %s:%s", target.display_name, to_peer_id, target.ip, target.tcp_port)
         success = self.peer_client.send(target.ip, target.tcp_port, message)
-        print(f"[Router] peer_client.send returned: {success}")
         if success:
             self._peer_send_failures.pop(to_peer_id, None)
             if self.data_manager:
@@ -285,14 +273,7 @@ class MessageRouter:
         return self.peer_manager.add_peer(peer_id)
     
     def add_peer_by_ip(self, ip: str, port: int, display_name: str = "Unknown") -> Tuple[bool, Optional[str]]:
-        """
-        Add a friend directly by IP and port without discovery.
-        Returns (success, peer_id or error_message)
-        """
-        print(f"[Add Peer] Request to add peer at {ip}:{port} with name '{display_name}'")
-        print(f"[Add Peer] My peer_id={self.peer_id}, my name={self.display_name}")
         log.info(f"[Add Peer] Request to add peer at {ip}:{port} with name '{display_name}'")
-        log.info(f"[Add Peer] My peer_id={self.peer_id}, my name={self.display_name}")
         
         if not ip or not port:
             log.error("[Add Peer] Invalid IP or port")
@@ -302,7 +283,6 @@ class MessageRouter:
             log.error(f"[Add Peer] Port {port} out of valid range")
             return False, "Port must be between 1 and 65535"
         
-        # Generate a temporary peer_id; will be replaced when we receive HELLO response
         temp_peer_id = str(uuid.uuid4())
         
         peer_info = PeerInfo(
@@ -318,47 +298,31 @@ class MessageRouter:
         
         if self.data_manager:
             self.data_manager.update_peer(peer_info)
-            print(f"[Add Peer] Added peer {display_name} ({temp_peer_id[:8]}) at {ip}:{port}")
             log.info("Added peer %s (%s) at %s:%s", display_name, temp_peer_id, ip, port)
         
-        # Send HELLO handshake to verify peer exists and get peer info
         try:
-            print(f"[Add Peer] Creating HELLO message to send to {ip}:{port}")
-            # Get our real IP (the one we're listening on)
             my_ip = getattr(self, 'local_ip', '')
-            print(f"[Add Peer] Router has local_ip attribute: {hasattr(self, 'local_ip')}")
-            print(f"[Add Peer] My IP (for HELLO): {my_ip}")
-            print(f"[Add Peer] Including our IP in HELLO: {my_ip}:{self.tcp_port}")
             hello_msg = Message.create_hello(
                 sender_id=self.peer_id,
                 sender_name=self.display_name or "Unknown",
                 receiver_id=temp_peer_id,
                 tcp_port=self.tcp_port,
-                sender_ip=my_ip  # Include our real IP
+                sender_ip=my_ip
             )
-            print(f"[Add Peer] Sending HELLO to {ip}:{port}...")
             success = self.peer_client.send(ip, port, hello_msg)
             if success:
-                print(f"[Add Peer] ✓ Sent HELLO handshake to {ip}:{port}")
                 log.info("Sent HELLO handshake to %s:%s", ip, port)
             else:
-                print(f"[Add Peer] ✗ Failed to send HELLO to {ip}:{port} (peer may be offline)")
                 log.warning("Failed to send HELLO to %s:%s (peer may be offline)", ip, port)
         except Exception as e:
-            print(f"[Add Peer] ✗ Error sending HELLO to {ip}:{port}: {e}")
-            import traceback
-            traceback.print_exc()
             log.warning("Error sending HELLO to %s:%s: %s", ip, port, e)
         
         if self._on_peer_callback:
             try:
-                print(f"[Add Peer] Calling _on_peer_callback for {display_name}")
                 self._on_peer_callback(peer_info)
             except Exception as e:
-                print(f"[Add Peer] Error in _on_peer_callback: {e}")
                 log.error("Error in _on_peer_callback for new peer: %s", e, exc_info=True)
         
-        print(f"[Add Peer] Returning success=True, peer_id={temp_peer_id[:8]}...")
         return True, temp_peer_id
     
     def set_friend_request_callback(self, callback: Optional[Callable[[str, str], None]]):
@@ -371,19 +335,15 @@ class MessageRouter:
         self._on_friend_rejected_callback = callback
     
     def set_call_request_callback(self, callback: Optional[Callable[[str, str, str, int, int, str], None]]):
-        """Set callback for incoming call requests"""
         self._on_call_request_callback = callback
     
     def set_call_accept_callback(self, callback: Optional[Callable[[str, int, int], None]]):
-        """Set callback for call accept"""
         self._on_call_accept_callback = callback
     
     def set_call_reject_callback(self, callback: Optional[Callable[[str], None]]):
-        """Set callback for call reject"""
         self._on_call_reject_callback = callback
     
     def set_call_end_callback(self, callback: Optional[Callable[[str], None]]):
-        """Set callback for call end"""
         self._on_call_end_callback = callback
     
     def send_friend_request(self, peer_id: str) -> bool:
@@ -399,7 +359,6 @@ class MessageRouter:
         self.peer_manager.notify_existing_peers()
     
     def _get_local_ip_for_sync(self) -> str:
-        """Get local IP address for FRIEND_SYNC messages"""
         try:
             from Core.utils.network_mode import get_local_ip
             return get_local_ip()

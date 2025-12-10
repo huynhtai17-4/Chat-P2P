@@ -9,10 +9,9 @@ class PeerInfo:
     display_name: str
     ip: str
     tcp_port: int
-    status: str = "offline"  # runtime-only; never persisted
+    status: str = "offline"
 
     def to_dict(self) -> Dict:
-        # Persist only connection info; status is runtime-only
         return {
             "peer_id": self.peer_id,
             "display_name": self.display_name,
@@ -27,5 +26,5 @@ class PeerInfo:
             display_name=data.get("display_name", "Unknown"),
             ip=data.get("ip", ""),
             tcp_port=data.get("tcp_port", 0),
-            status="offline",  # always start offline; will update on ONLINE event
+            status="offline",
         )

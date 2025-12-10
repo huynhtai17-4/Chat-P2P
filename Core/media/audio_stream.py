@@ -1,6 +1,3 @@
-"""
-Audio capture and playback using PyAudio
-"""
 from __future__ import annotations
 
 import logging
@@ -10,30 +7,20 @@ import threading
 try:
     import pyaudio
     PYAUDIO_AVAILABLE = True
-    print(f"[AudioStream] PyAudio imported successfully, version: {pyaudio.__version__ if hasattr(pyaudio, '__version__') else 'unknown'}")
 except ImportError as e:
     PYAUDIO_AVAILABLE = False
     pyaudio = None
-    print(f"[AudioStream] CRITICAL: Failed to import PyAudio: {e}")
 
 log = logging.getLogger(__name__)
-print(f"[AudioStream] Module loaded, PYAUDIO_AVAILABLE = {PYAUDIO_AVAILABLE}")
 
-# Audio configuration
-CHUNK_SIZE = 1024  # Frames per buffer
-FORMAT = 8  # pyaudio.paInt16 (16-bit audio)
-CHANNELS = 1  # Mono
-RATE = 16000  # 16kHz sample rate (good quality, low bandwidth)
+CHUNK_SIZE = 1024
+FORMAT = 8
+CHANNELS = 1
+RATE = 16000
 
 
 class AudioCapture:
-    """Capture audio from microphone"""
-    
     def __init__(self, on_audio: Callable[[bytes], None]):
-        """
-        Args:
-            on_audio: Callback when audio chunk captured
-        """
         if not PYAUDIO_AVAILABLE:
             raise RuntimeError("PyAudio not available. Install with: pip install PyAudio")
         
@@ -43,7 +30,6 @@ class AudioCapture:
         self._running = False
     
     def start(self) -> bool:
-        """Start capturing audio from microphone"""
         if self._running:
             return True
         
@@ -66,7 +52,6 @@ class AudioCapture:
             return False
     
     def stop(self):
-        """Stop capturing"""
         self._running = False
         
         if self.stream:
@@ -80,7 +65,6 @@ class AudioCapture:
         log.info("[AudioCapture] Stopped")
     
     def cleanup(self):
-        """Release PyAudio resources"""
         self.stop()
         if self.p_audio:
             try:
@@ -89,7 +73,6 @@ class AudioCapture:
                 pass
     
     def _audio_callback(self, in_data, frame_count, time_info, status):
-        """Callback when audio chunk captured"""
         if status:
             log.warning(f"[AudioCapture] Status: {status}")
         
@@ -103,8 +86,6 @@ class AudioCapture:
 
 
 class AudioPlayback:
-    """Play audio to speaker"""
-    
     def __init__(self):
         if not PYAUDIO_AVAILABLE:
             raise RuntimeError("PyAudio not available. Install with: pip install PyAudio")
@@ -113,10 +94,9 @@ class AudioPlayback:
         self.stream: Optional[pyaudio.Stream] = None
         self._running = False
         self._lock = threading.Lock()
-        self._buffer = b''  # Audio buffer
+        self._buffer = b''
     
     def start(self) -> bool:
-        """Start audio playback stream"""
         if self._running:
             return True
         
@@ -139,7 +119,6 @@ class AudioPlayback:
             return False
     
     def stop(self):
-        """Stop playback"""
         self._running = False
         
         if self.stream:
@@ -156,7 +135,6 @@ class AudioPlayback:
         log.info("[AudioPlayback] Stopped")
     
     def cleanup(self):
-        """Release PyAudio resources"""
         self.stop()
         if self.p_audio:
             try:
@@ -165,25 +143,20 @@ class AudioPlayback:
                 pass
     
     def play(self, audio_data: bytes):
-        """Add audio data to playback buffer"""
         with self._lock:
             self._buffer += audio_data
     
     def _playback_callback(self, in_data, frame_count, time_info, status):
-        """Callback to provide audio data for playback"""
         with self._lock:
-            bytes_needed = frame_count * CHANNELS * 2  # 2 bytes per sample (16-bit)
+            bytes_needed = frame_count * CHANNELS * 2
             
             if len(self._buffer) >= bytes_needed:
-                # Have enough data
                 data = self._buffer[:bytes_needed]
                 self._buffer = self._buffer[bytes_needed:]
             elif len(self._buffer) > 0:
-                # Partial data, pad with silence
                 data = self._buffer + b'\x00' * (bytes_needed - len(self._buffer))
                 self._buffer = b''
             else:
-                # No data, output silence
                 data = b'\x00' * bytes_needed
         
         return (data, pyaudio.paContinue)

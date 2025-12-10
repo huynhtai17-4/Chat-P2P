@@ -1,6 +1,3 @@
-"""
-Video capture and processing using OpenCV
-"""
 from __future__ import annotations
 
 import logging
@@ -9,36 +6,28 @@ import threading
 import time
 
 try:
-    import cv2  # type: ignore
-    import numpy as np  # type: ignore
+    import cv2
+    import numpy as np
     CV2_AVAILABLE = True
 except ImportError:
     CV2_AVAILABLE = False
     cv2 = None
     np = None
 
-# Hint for type checkers (pylance) even if cv2/np missing at runtime
 if TYPE_CHECKING:
-    import cv2  # type: ignore
-    import numpy as np  # type: ignore
+    import cv2
+    import numpy as np
 
 log = logging.getLogger(__name__)
 
-# Video configuration
 VIDEO_WIDTH = 640
 VIDEO_HEIGHT = 480
-VIDEO_FPS = 15  # 15 FPS for lower bandwidth
-JPEG_QUALITY = 60  # 0-100, lower = smaller size
+VIDEO_FPS = 15
+JPEG_QUALITY = 60
 
 
 class VideoCapture:
-    """Capture video from webcam"""
-    
     def __init__(self, on_frame: Callable[[bytes], None]):
-        """
-        Args:
-            on_frame: Callback when frame captured (gets JPEG bytes)
-        """
         if not CV2_AVAILABLE:
             raise RuntimeError("OpenCV not available. Install with: pip install opencv-python")
         
@@ -49,7 +38,6 @@ class VideoCapture:
         self._running = False
     
     def start(self, camera_index: int = 0) -> bool:
-        """Start capturing video from webcam"""
         if self._running:
             return True
         
@@ -60,7 +48,6 @@ class VideoCapture:
                 log.error("[VideoCapture] Failed to open camera")
                 return False
             
-            # Set camera resolution
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, VIDEO_WIDTH)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, VIDEO_HEIGHT)
             self.cap.set(cv2.CAP_PROP_FPS, VIDEO_FPS)
@@ -77,7 +64,6 @@ class VideoCapture:
             return False
     
     def stop(self):
-        """Stop capturing"""
         self._stop_event.set()
         self._running = False
         
@@ -94,7 +80,6 @@ class VideoCapture:
         log.info("[VideoCapture] Stopped")
     
     def _capture_loop(self):
-        """Main loop to capture frames"""
         frame_delay = 1.0 / VIDEO_FPS
         
         while not self._stop_event.is_set():
@@ -106,23 +91,19 @@ class VideoCapture:
                     time.sleep(0.1)
                     continue
                 
-                # Resize if needed
                 if frame.shape[1] != VIDEO_WIDTH or frame.shape[0] != VIDEO_HEIGHT:
                     frame = cv2.resize(frame, (VIDEO_WIDTH, VIDEO_HEIGHT))
                 
-                # Encode to JPEG for transmission
                 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY]
                 _, buffer = cv2.imencode('.jpg', frame, encode_param)
                 frame_bytes = buffer.tobytes()
                 
-                # Call callback
                 if self.on_frame:
                     try:
                         self.on_frame(frame_bytes)
                     except Exception as e:
                         log.error(f"[VideoCapture] Error in callback: {e}")
                 
-                # Maintain FPS
                 time.sleep(frame_delay)
                 
             except Exception as e:
@@ -132,11 +113,8 @@ class VideoCapture:
 
 
 class VideoDecoder:
-    """Decode and process received video frames"""
-    
     @staticmethod
     def decode_frame(frame_bytes: bytes) -> Optional[np.ndarray]:
-        """Decode JPEG bytes to numpy array (OpenCV image)"""
         if not CV2_AVAILABLE:
             return None
         
@@ -150,12 +128,10 @@ class VideoDecoder:
     
     @staticmethod
     def frame_to_rgb_bytes(frame: np.ndarray) -> bytes:
-        """Convert OpenCV frame (BGR) to RGB bytes for Qt display"""
         if frame is None:
             return b''
         
         try:
-            # Convert BGR to RGB
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             return rgb_frame.tobytes()
         except Exception as e:

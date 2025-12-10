@@ -13,10 +13,9 @@ from .message_bubble import MessageBubble
 from Gui.controller.chat_area_controller import ChatAreaController
 
 class ChatArea(QFrame):
-    # Signals
-    remove_friend_requested = Signal(str)  # peer_id
-    voice_call_requested = Signal(str)  # peer_id
-    video_call_requested = Signal(str)  # peer_id
+    remove_friend_requested = Signal(str)
+    voice_call_requested = Signal(str)
+    video_call_requested = Signal(str)
     
     def __init__(self):
         super().__init__()
@@ -24,7 +23,6 @@ class ChatArea(QFrame):
         self.setMinimumHeight(300)
         self.setMinimumHeight(500)
         
-        # Store current peer info
         self.current_peer_id = None
         self.current_peer_name = None
 
@@ -46,7 +44,6 @@ class ChatArea(QFrame):
         self.message_layout.addStretch()
         
         self.message_area.setWidget(self.message_content)
-        # Auto-scroll whenever the scroll range changes (new content added)
         self.message_area.verticalScrollBar().rangeChanged.connect(
             lambda _min, _max: self.scroll_to_bottom()
         )
@@ -63,8 +60,6 @@ class ChatArea(QFrame):
         self.populate_messages()
     
     def set_peer_info(self, peer_name: str, peer_id: str = "", is_online: bool = False, avatar_path: str = None):
-        """Update chat header with peer info and show header"""
-        # Store current peer info
         self.current_peer_id = peer_id
         self.current_peer_name = peer_name
         
@@ -75,25 +70,20 @@ class ChatArea(QFrame):
         else:
             self.header_status.setText("Offline")
         
-        # Load avatar
         if avatar_path and os.path.exists(avatar_path):
             pixmap = load_circular_pixmap(avatar_path, size=40)
         else:
-            # Use default avatar
             pixmap = load_circular_pixmap("Gui/assets/images/avatar1.jpg", size=40)
         self.header_avatar.setPixmap(pixmap)
         
-        # Show header
         self.header_frame.setVisible(True)
     
     def hide_header(self):
-        """Hide chat header when no peer selected"""
         self.current_peer_id = None
         self.current_peer_name = None
         self.header_frame.setVisible(False)
     
     def set_peer_status(self, is_online: bool):
-        """Update only the status text in the header"""
         if is_online:
             self.header_status.setText("Online")
         else:
@@ -103,7 +93,7 @@ class ChatArea(QFrame):
         
         self.header_frame = QFrame()
         self.header_frame.setObjectName("ChatHeader")
-        self.header_frame.setVisible(False)  # Hidden by default until peer selected
+        self.header_frame.setVisible(False)
         
         layout = QHBoxLayout(self.header_frame)
         layout.setSpacing(10)
@@ -230,19 +220,6 @@ class ChatArea(QFrame):
         self.controller.set_send_button(self.send_button)
 
     def add_message(self, text, is_sender, add_to_top=False, time_str=None, file_name=None, file_data=None, msg_type="text", local_file_path=None):
-        """
-        Add a message to the chat area.
-        
-        Args:
-            text: Message content
-            is_sender: True if message was sent by local user (right aligned), False if received (left aligned)
-            time_str: Timestamp string
-            file_name: File name if message contains a file
-            file_data: Base64 encoded file data
-            msg_type: Message type ("text", "image", "file", etc.)
-            local_file_path: Local path to saved file
-        """
-        # Ensure is_sender is a boolean
         is_sender = bool(is_sender)
         
         bubble = MessageBubble(
@@ -262,11 +239,9 @@ class ChatArea(QFrame):
         row_layout.setSpacing(10)
         
         if is_sender:
-            # Own message: align to right, no avatar
             row_layout.addStretch() 
             row_layout.addWidget(bubble_widget, 0, Qt.AlignTop | Qt.AlignRight)
         else:
-            # Incoming message: align to left, show avatar
             avatar_label = QLabel()
             avatar_label.setObjectName("ChatAvatarLabel")
             avatar_label.setFixedSize(36, 36)
@@ -280,7 +255,6 @@ class ChatArea(QFrame):
         
         self.message_layout.insertLayout(self.message_layout.count() - 1, row_layout)
         
-        # Auto-scroll logic: always scroll to bottom after adding a new message
         self.scroll_to_bottom()
         
     def add_date_separator(self, text):
@@ -309,7 +283,6 @@ class ChatArea(QFrame):
                 self.add_date_separator(msg_date)
                 current_date = msg_date
             
-            # Explicitly get is_sender - determines if message is from local user
             is_sender = bool(msg.get('is_sender', False))
             content = msg.get('content', '')
             time_str = msg.get('time_str', None)
@@ -319,7 +292,7 @@ class ChatArea(QFrame):
             local_file_path = msg.get('local_file_path')
             self.add_message(
                 content,
-                is_sender,  # True = own message (right), False = incoming (left)
+                is_sender,
                 time_str=time_str,
                 file_name=file_name,
                 file_data=file_data,
@@ -327,7 +300,6 @@ class ChatArea(QFrame):
                 local_file_path=local_file_path,
             )
         
-        # After loading history, ensure we are at the bottom to show newest
         self.scroll_to_bottom()
     
     def clear_messages(self):
@@ -365,14 +337,6 @@ class ChatArea(QFrame):
     def add_preview_item(self, file_name: str, file_data_base64: str, is_image: bool):
         preview_item = QWidget()
         preview_item.setObjectName("PreviewItem")
-        preview_item.setStyleSheet("""
-            QWidget#PreviewItem {
-                background-color: #f5f5f5;
-                border: 1px solid #e0e0e0;
-                border-radius: 8px;
-                padding: 8px;
-            }
-        """)
         
         item_layout = QHBoxLayout(preview_item)
         item_layout.setContentsMargins(8, 8, 8, 8)
@@ -395,33 +359,21 @@ class ChatArea(QFrame):
                 item_layout.addWidget(image_label)
             except:
                 icon_label = QLabel("🖼️")
-                icon_label.setStyleSheet("font-size: 24px;")
+                icon_label.setObjectName("FileIconLabel")
                 item_layout.addWidget(icon_label)
         else:
             icon_label = QLabel("📄")
-            icon_label.setStyleSheet("font-size: 24px;")
+            icon_label.setObjectName("FileIconLabel")
             item_layout.addWidget(icon_label)
         
         name_label = QLabel(file_name)
-        name_label.setStyleSheet("font-size: 12px; color: #333;")
+        name_label.setObjectName("FileNameLabel")
         name_label.setWordWrap(True)
         item_layout.addWidget(name_label, 1)
         
         remove_btn = QPushButton("✕")
+        remove_btn.setObjectName("PreviewRemoveButton")
         remove_btn.setFixedSize(24, 24)
-        remove_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ff4444;
-                color: white;
-                border: none;
-                border-radius: 12px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #cc0000;
-            }
-        """)
         remove_btn.clicked.connect(lambda: self.remove_preview_item(file_name))
         item_layout.addWidget(remove_btn)
         
@@ -447,7 +399,6 @@ class ChatArea(QFrame):
         return self.preview_items
 
     def scroll_to_bottom(self):
-        """Force the scroll area to the bottom."""
         if not hasattr(self, "message_area"):
             return
         from PySide6.QtCore import QTimer
@@ -455,47 +406,26 @@ class ChatArea(QFrame):
         QTimer.singleShot(0, lambda: scroll_bar.setValue(scroll_bar.maximum()))
     
     def _show_options_menu(self):
-        """Show menu with option: Remove Friend"""
         if not self.current_peer_id or not self.current_peer_name:
             return
         
         menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu {
-                background-color: white;
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                padding: 5px;
-            }
-            QMenu::item {
-                padding: 8px 20px;
-                border-radius: 4px;
-            }
-            QMenu::item:selected {
-                background-color: #f0f0f0;
-            }
-        """)
         
-        # Remove Friend action
         remove_friend_action = QAction("❌ Remove Friend", self)
         remove_friend_action.triggered.connect(lambda: self._on_remove_friend())
         menu.addAction(remove_friend_action)
         
-        # Show menu at button position
         button_pos = self.more_icon.mapToGlobal(self.more_icon.rect().bottomLeft())
         menu.exec(button_pos)
     
     def _on_remove_friend(self):
-        """Handle remove friend request"""
         if self.current_peer_id:
             self.remove_friend_requested.emit(self.current_peer_id)
     
     def _on_voice_call_clicked(self):
-        """Handle voice call button click"""
         if self.current_peer_id:
             self.voice_call_requested.emit(self.current_peer_id)
     
     def _on_video_call_clicked(self):
-        """Handle video call button click"""
         if self.current_peer_id:
             self.video_call_requested.emit(self.current_peer_id)

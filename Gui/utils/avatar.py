@@ -3,7 +3,6 @@ from PySide6.QtGui import QPixmap, QPainter, QPainterPath, QColor, QPen
 from PySide6.QtCore import Qt, QRectF
 
 def load_circular_pixmap(image_path, size=40, border_width=0, border_color="#dddddd"):
-    
     pixmap = QPixmap(image_path)
     if pixmap.isNull():
         pixmap = QPixmap(size, size)
@@ -12,21 +11,21 @@ def load_circular_pixmap(image_path, size=40, border_width=0, border_color="#ddd
     circular_pixmap.fill(Qt.transparent)
     
     painter = QPainter(circular_pixmap)
-    painter.setRenderHint(QPainter.Antialiasing)  # Khử răng cưa
+    painter.setRenderHint(QPainter.Antialiasing)
     if border_width > 0:
-        painter.setPen(Qt.NoPen)  # Không cần viền cho vòng tròn này
+        painter.setPen(Qt.NoPen)
         painter.setBrush(QColor(border_color))
-        painter.drawEllipse(0, 0, size, size)  # Vẽ vòng tròn viền
+        painter.drawEllipse(0, 0, size, size)
     image_inset = border_width
     image_size = size - (border_width * 2)
     
     path = QPainterPath()
     path.addEllipse(image_inset, image_inset, image_size, image_size)
-    painter.setClipPath(path)  # Đặt đường cắt
+    painter.setClipPath(path)
 
     scaled_pixmap = pixmap.scaled(
         size, size,
-        Qt.KeepAspectRatioByExpanding,  # Scale cho đến khi lấp đầy
+        Qt.KeepAspectRatioByExpanding,
         Qt.SmoothTransformation
     )
     

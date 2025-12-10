@@ -445,4 +445,319 @@ QScrollBar::add-page, QScrollBar::sub-page {
     background: none;
 }
 
+/* =========================================== */
+/* === PREVIEW AREA (File Attachments) === */
+/* =========================================== */
+QWidget#PreviewArea {
+    background-color: #f9f9f9;
+    border-top: 1px solid #e0e0e0;
+}
+
+QWidget#PreviewItem {
+    background-color: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+QPushButton#PreviewRemoveButton {
+    background-color: #ff4444;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+QPushButton#PreviewRemoveButton:hover {
+    background-color: #cc0000;
+}
+
+/* =========================================== */
+/* === MESSAGE BUBBLE FILE WIDGETS === */
+/* =========================================== */
+QLabel#MessageImageLabel {
+    background-color: transparent;
+    border: none;
+    border-radius: 12px;
+    padding: 0px;
+}
+
+QWidget#FileContainer {
+    background-color: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 0px;
+}
+
+QLabel#FileNameLabel {
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+}
+
+QLabel#FileTypeLabel {
+    font-size: 11px;
+    color: #999;
+}
+
+QLabel#FileIconLabel {
+    font-size: 24px;
+}
+
+QPushButton#FileDownloadButton {
+    background-color: #007AFF;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+QPushButton#FileDownloadButton:hover {
+    background-color: #0051D5;
+}
+
+QPushButton#FileDownloadButton:pressed {
+    background-color: #0040B3;
+}
+
+QLabel#FileErrorLabel {
+    font-size: 12px;
+    color: #666;
+    padding: 5px;
+}
+
+/* =========================================== */
+/* === CALL WINDOW STYLES === */
+/* =========================================== */
+QFrame#VideoContainer {
+    background-color: #1a1a1a;
+}
+
+QLabel#RemoteVideoLabel {
+    background-color: #2a2a2a;
+    color: #999;
+    font-size: 16px;
+}
+
+QLabel#LocalVideoLabel {
+    background-color: #3a3a3a;
+    border: 2px solid #555;
+    border-radius: 8px;
+}
+
+QLabel#CallAvatarLabel {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+}
+
+QLabel#CallStatusLabel {
+    font-size: 18px;
+    color: #666;
+}
+
+QFrame#ControlsPanel {
+    background-color: #f5f5f5;
+    border-top: 1px solid #ddd;
+}
+
+QPushButton#MuteButton {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+QPushButton#MuteButton:hover {
+    background-color: #45a049;
+}
+
+QPushButton#MuteButton:checked {
+    background-color: #ff9800;
+}
+
+QPushButton#MuteButton:checked:hover {
+    background-color: #e68900;
+}
+
+QPushButton#EndCallButton {
+    background-color: #ff4444;
+    border: none;
+    border-radius: 30px;
+}
+
+QPushButton#EndCallButton:hover {
+    background-color: #cc0000;
+}
+
+QPushButton#CameraButton {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+QPushButton#CameraButton:hover {
+    background-color: #0b7dda;
+}
+
+/* =========================================== */
+/* === CALL DIALOG STYLES === */
+/* =========================================== */
+QLabel#DialogCallerName {
+    font-size: 22px;
+    font-weight: bold;
+    color: #333;
+}
+
+QLabel#DialogCallType {
+    font-size: 16px;
+    color: #666;
+}
+
+QLabel#DialogStatus {
+    font-size: 16px;
+    color: #666;
+}
+
+QPushButton#RejectCallButton {
+    background-color: #ff4444;
+    border: none;
+    border-radius: 30px;
+}
+
+QPushButton#RejectCallButton:hover {
+    background-color: #cc0000;
+}
+
+QPushButton#AcceptCallButton {
+    background-color: #4CAF50;
+    border: none;
+    border-radius: 30px;
+}
+
+QPushButton#AcceptCallButton:hover {
+    background-color: #45a049;
+}
+
+QPushButton#CancelCallButton {
+    background-color: #ff4444;
+    border: none;
+    border-radius: 30px;
+}
+
+QPushButton#CancelCallButton:hover {
+    background-color: #cc0000;
+}
+
+/* =========================================== */
+/* === ADD FRIEND STYLES === */
+/* =========================================== */
+QLineEdit#AddFriendInput {
+    background-color: #F1F3F5;
+    border: 1px solid #E0E0E0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+QLineEdit#AddFriendInput:focus {
+    border: 1px solid #4A90E2;
+}
+
+QPushButton#AddFriendButton {
+    background-color: #4A90E2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 8px 16px;
+}
+
+QPushButton#AddFriendButton:hover {
+    background-color: #3A7BC8;
+}
+
+QPushButton#AddFriendButton:pressed {
+    background-color: #2A6BB0;
+}
+
+/* =========================================== */
+/* === EMOJI PICKER DIALOG === */
+/* =========================================== */
+QPushButton#EmojiButton {
+    border: none;
+    background: transparent;
+    font-size: 24px;
+}
+
+QPushButton#EmojiButton:hover {
+    background-color: rgba(0,0,0,0.1);
+}
+
+QPushButton#EmojiCloseButton {
+    background-color: #4A90E2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    padding: 8px 16px;
+}
+
+QPushButton#EmojiCloseButton:hover {
+    background-color: #3A7BC8;
+}
+
+/* =========================================== */
+/* === NETWORK INFO LABELS === */
+/* =========================================== */
+QLabel#NetworkInfoLabel {
+    font-size: 12px;
+    color: #2196F3;
+    font-weight: bold;
+}
+
+QLabel#NetworkInfoLabelInactive {
+    font-size: 11px;
+    color: #999;
+}
+
+/* =========================================== */
+/* === NOTIFICATION PANEL LABELS === */
+/* =========================================== */
+QLabel#NotificationTextLabel {
+    font-size: 13px;
+    color: #555;
+}
+
+QLabel#NotificationTimeLabel {
+    color: #AAA;
+    font-size: 11px;
+}
+
+QLabel#FormLabel {
+    font-size: 12px;
+    color: #555;
+}
+
+/* =========================================== */
+/* === MESSAGE TIMESTAMP === */
+/* =========================================== */
+QLabel#MessageTimestamp {
+    font-size: 10px;
+    color: #999;
+    padding: 2px 5px;
+}
+
+QLabel#FileTextLabel {
+    background-color: transparent;
+    padding: 0px;
+}
+
 """

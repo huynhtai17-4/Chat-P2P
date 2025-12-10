@@ -27,13 +27,12 @@ class MainWindow(QMainWindow):
         self._active_request_dialogs = {}
 
         self.controller = MainWindowController(self.username, self.user_name, self.tcp_port)
-        self.controller.setParent(self)  # Set parent to ensure proper Qt ownership
+        self.controller.setParent(self)
         self._setup_ui()
         self._setup_controller_signals()
         self._setup_component_signals()
         self.controller.start()
         
-        # Set user network info in right sidebar
         local_ip = getattr(self.controller.chat_core, 'local_ip', '')
         self.right_sidebar.set_user_network_info(local_ip, self.tcp_port)
 
@@ -88,25 +87,18 @@ class MainWindow(QMainWindow):
         self.controller.add_preview_callback = lambda name, data, is_img: self.center_panel.add_preview_item(name, data, is_img)
         self.controller.clear_preview_callback = lambda: self.center_panel.clear_preview()
         
-        # Connect remove friend action from chat area
         self.center_panel.remove_friend_requested.connect(self.controller.remove_friend)
         
-        # Connect call actions from chat area
         self.center_panel.voice_call_requested.connect(self.controller.start_voice_call)
         self.center_panel.video_call_requested.connect(self.controller.start_video_call)
 
-        # Connect Add Friend by IP from right sidebar
-        print("[MainWindow] Connecting add_friend_requested signal to controller.add_friend_by_ip")
         self.right_sidebar.add_friend_requested.connect(self._on_add_friend_requested)
-        print(f"[MainWindow] Signal connected to instance method: {self.right_sidebar.add_friend_requested} -> {self._on_add_friend_requested}")
         
-        # Connect peer status update callbacks
         self.controller._update_peer_status_callback = self._update_peer_status_in_list
         self.controller._update_header_status_callback = self._update_header_status
 
     def _on_chat_list_updated(self, conversations):
         self.left_sidebar.load_conversations(conversations)
-        # Only update header if a peer is currently selected
         if self.controller.current_peer_id:
             peers = self.controller.peers
             peer_info = peers.get(self.controller.current_peer_id, {})
@@ -120,17 +112,14 @@ class MainWindow(QMainWindow):
                     avatar_path=None
                 )
         else:
-            # No peer selected - hide header
             self.center_panel.hide_header()
     
     def _update_peer_status_in_list(self, peer_id: str, is_online: bool):
-        """Update online status for a peer in the chat list without full refresh"""
         if self.left_sidebar:
             self.left_sidebar.update_peer_status(peer_id, is_online)
 
     def _on_message_received(self, payload):
         peer_id = payload.get("peer_id", "")
-        # Explicitly get is_sender from payload - this determines message alignment
         is_sender = payload.get("is_sender", False)
         display_content = payload.get("display_content", payload.get("content", ""))
         time_str = payload.get("time_str", "")
@@ -139,12 +128,10 @@ class MainWindow(QMainWindow):
         local_file_path = payload.get("local_file_path")
         msg_type = payload.get("msg_type", "text")
         
-        # Only display message if it's for the currently selected peer
         if peer_id == self.controller.current_peer_id and self.center_panel:
-            # Pass is_sender explicitly to ensure correct alignment
             self.center_panel.add_message(
                 display_content, 
-                is_sender,  # True = right aligned (own message), False = left aligned (incoming)
+                is_sender,
                 time_str=time_str,
                 file_name=file_name,
                 file_data=file_data,
@@ -153,32 +140,27 @@ class MainWindow(QMainWindow):
             )
 
     def _on_chat_selected(self, chat_id: str, chat_name: str):
-        """Update chat header when peer is selected"""
         if chat_id and chat_name:
-            # Get peer info from controller
             peers = self.controller.peers
             peer_info = peers.get(chat_id, {})
             is_online = peer_info.get('status', '') == 'online'
             
-            # Update chat area header
             self.center_panel.set_peer_info(
                 peer_name=chat_name,
                 peer_id=chat_id,
                 is_online=is_online,
-                avatar_path=None  # TODO: Add avatar_path to peer_info if needed
+                avatar_path=None
             )
         else:
             self.center_panel.hide_header()
     
     def _update_header_status(self, peer_id: str, is_online: bool):
-        """Update header status if this peer is currently selected"""
         if peer_id == self.controller.current_peer_id:
             self.center_panel.set_peer_status(is_online)
 
     def _on_load_chat_history(self, peer_id: str, history: list):
         if self.center_panel:
             self.center_panel.load_chat_history(history)
-            # Ensure header is updated when loading history
             if peer_id:
                 peers = self.controller.peers
                 peer_info = peers.get(peer_id, {})
@@ -260,16 +242,8 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, title, message)
 
     def _on_add_friend_requested(self, ip: str, port: int):
-        """Handle add friend request from notifications panel"""
-        print(f"[MainWindow] _on_add_friend_requested called: IP={ip}, Port={port}")
-        print(f"[MainWindow] Controller exists: {self.controller is not None}")
         if self.controller:
-            print(f"[MainWindow] Controller chat_core exists: {hasattr(self.controller, 'chat_core') and self.controller.chat_core is not None}")
-            print(f"[MainWindow] Calling controller.add_friend_by_ip...")
             self.controller.add_friend_by_ip(ip, port)
-            print(f"[MainWindow] controller.add_friend_by_ip returned")
-        else:
-            print("[MainWindow] ERROR: controller is None!")
     
     def closeEvent(self, event):
         self.controller.stop()

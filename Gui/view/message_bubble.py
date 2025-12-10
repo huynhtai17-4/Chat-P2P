@@ -19,7 +19,7 @@ class MessageBubble(QLabel):
         has_file_payload = (file_name is not None) and (file_data is not None or local_file_path is not None)
 
         if msg_type in ("image", "file") and has_file_payload:
-            super().__init__()  # Always initialize base class
+            super().__init__()
             container = QWidget()
             layout = QVBoxLayout(container)
             layout.setContentsMargins(0, 0, 0, 0)
@@ -31,14 +31,13 @@ class MessageBubble(QLabel):
             if text and msg_type != "image":
                 label = QLabel(text)
                 label.setWordWrap(True)
-                label.setStyleSheet("QLabel { background-color: transparent; padding: 0px; }")
+                label.setObjectName("FileTextLabel")
                 layout.addWidget(label)
 
             if time_str:
                 time_label = QLabel(time_str)
                 time_label.setObjectName("MessageTimestamp")
                 time_label.setAlignment(Qt.AlignRight if is_sender else Qt.AlignLeft)
-                time_label.setStyleSheet("font-size: 10px; color: #999; padding: 2px 5px;")
                 layout.addWidget(time_label)
 
             self._container = container
@@ -57,7 +56,6 @@ class MessageBubble(QLabel):
                 time_label = QLabel(time_str)
                 time_label.setObjectName("MessageTimestamp")
                 time_label.setAlignment(Qt.AlignRight if is_sender else Qt.AlignLeft)
-                time_label.setStyleSheet("font-size: 10px; color: #999; padding: 2px 5px;")
             layout.addWidget(time_label)
             
             self._container = container
@@ -66,7 +64,6 @@ class MessageBubble(QLabel):
             self.setWordWrap(True)
             self._container = None
         
-        # Normalize max width so sender/receiver bubbles have similar sizing
         max_width = 420
         if self._container:
             self._container.setMaximumWidth(max_width)
@@ -105,30 +102,16 @@ class MessageBubble(QLabel):
                 image_label.setPixmap(pixmap)
                 image_label.setAlignment(Qt.AlignCenter)
                 image_label.setScaledContents(False)
-                image_label.setStyleSheet("""
-                    QLabel {
-                        background-color: transparent;
-                        border: none;
-                        border-radius: 12px;
-                        padding: 0px;
-                    }
-                """)
+                image_label.setObjectName("MessageImageLabel")
                 image_label.setFixedSize(pixmap.size())
                 layout.addWidget(image_label)
             except Exception as e:
                 file_label = QLabel("Failed to load image")
-                file_label.setStyleSheet("font-size: 12px; color: #666; padding: 5px;")
+                file_label.setObjectName("FileErrorLabel")
                 layout.addWidget(file_label)
         else:
             file_container = QWidget()
-            file_container.setStyleSheet("""
-                QWidget {
-                    background-color: #f5f5f5;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 8px;
-                    padding: 0px;
-                }
-            """)
+            file_container.setObjectName("FileContainer")
             file_layout = QVBoxLayout(file_container)
             file_layout.setContentsMargins(12, 10, 12, 10)
             file_layout.setSpacing(6)
@@ -138,7 +121,7 @@ class MessageBubble(QLabel):
             file_info_layout.setSpacing(10)
             
             file_icon_label = QLabel("📄")
-            file_icon_label.setStyleSheet("font-size: 24px;")
+            file_icon_label.setObjectName("FileIconLabel")
             file_info_layout.addWidget(file_icon_label)
             
             file_info_widget = QWidget()
@@ -147,11 +130,7 @@ class MessageBubble(QLabel):
             file_info_layout_inner.setSpacing(2)
             
             name_label = QLabel(file_name)
-            name_label.setStyleSheet("""
-                font-size: 13px;
-                font-weight: 500;
-                color: #333;
-            """)
+            name_label.setObjectName("FileNameLabel")
             name_label.setWordWrap(True)
             file_info_layout_inner.addWidget(name_label)
             
@@ -162,38 +141,18 @@ class MessageBubble(QLabel):
                 file_ext = file_ext[1:]
             
             type_label = QLabel(f"{file_ext} File")
-            type_label.setStyleSheet("""
-                font-size: 11px;
-                color: #999;
-            """)
+            type_label.setObjectName("FileTypeLabel")
             file_info_layout_inner.addWidget(type_label)
             
             file_info_layout.addWidget(file_info_widget, 1)
             file_layout.addLayout(file_info_layout)
             
-            # Add open functionality
             file_container.setCursor(Qt.PointingHandCursor)
             file_container.mousePressEvent = lambda event: self._open_file(file_name, file_data_base64)
             
             download_btn = QPushButton("Download")
+            download_btn.setObjectName("FileDownloadButton")
             download_btn.setFixedHeight(32)
-            download_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #007AFF;
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 6px 16px;
-                    font-size: 12px;
-                    font-weight: 500;
-                }
-                QPushButton:hover {
-                    background-color: #0051D5;
-                }
-                QPushButton:pressed {
-                    background-color: #0040B3;
-                }
-            """)
             download_btn.clicked.connect(lambda: self._download_file(file_name, file_data_base64))
             file_layout.addWidget(download_btn)
             
@@ -208,7 +167,6 @@ class MessageBubble(QLabel):
             import platform
             target_path = None
             
-            # Prefer existing saved file if path was provided and exists
             if self.local_file_path and os.path.exists(self.local_file_path):
                 target_path = self.local_file_path
             else:
@@ -218,11 +176,11 @@ class MessageBubble(QLabel):
                 with open(target_path, 'wb') as f:
                     f.write(file_data)
             
-            if platform.system() == 'Darwin':       # macOS
+            if platform.system() == 'Darwin':
                 subprocess.call(('open', target_path))
-            elif platform.system() == 'Windows':    # Windows
+            elif platform.system() == 'Windows':
                 os.startfile(target_path)
-            else:                                   # linux variants
+            else:
                 subprocess.call(('xdg-open', target_path))
                 
         except Exception as e:

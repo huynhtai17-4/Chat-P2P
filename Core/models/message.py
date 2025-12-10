@@ -53,7 +53,6 @@ class Message:
     
     @classmethod
     def create_friend_request(cls, sender_id: str, sender_name: str, receiver_id: str, tcp_port: int = 0) -> "Message":
-        """Create FRIEND_REQUEST message with sender's TCP port"""
         import json
         content_data = {
             "tcp_port": tcp_port
@@ -131,11 +130,10 @@ class Message:
     
     @classmethod
     def create_hello(cls, sender_id: str, sender_name: str, receiver_id: str, tcp_port: int = 0, sender_ip: str = "") -> "Message":
-        """Create HELLO handshake message with sender's tcp_port and IP"""
         import json
         content_data = {
             "tcp_port": tcp_port,
-            "sender_ip": sender_ip  # Add sender's real IP
+            "sender_ip": sender_ip
         }
         return cls.create(
             sender_id=sender_id,
@@ -148,7 +146,6 @@ class Message:
     @classmethod
     def create_hello_reply(cls, sender_id: str, sender_name: str, receiver_id: str, 
                           peer_ip: str, peer_tcp_port: int) -> "Message":
-        """Create HELLO_REPLY message with peer info"""
         import json
         reply_data = {
             "peer_id": sender_id,
@@ -167,12 +164,6 @@ class Message:
     @classmethod
     def create_call_request(cls, sender_id: str, sender_name: str, receiver_id: str,
                            call_type: str, audio_port: int, video_port: int = 0) -> "Message":
-        """Create CALL_REQUEST message
-        Args:
-            call_type: 'voice' or 'video'
-            audio_port: UDP port for audio streaming
-            video_port: UDP port for video streaming (0 if voice-only)
-        """
         import json
         call_data = {
             "call_type": call_type,
@@ -190,7 +181,6 @@ class Message:
     @classmethod
     def create_call_accept(cls, sender_id: str, sender_name: str, receiver_id: str,
                           audio_port: int, video_port: int = 0) -> "Message":
-        """Create CALL_ACCEPT message with receiver's UDP ports"""
         import json
         accept_data = {
             "audio_port": audio_port,
@@ -206,7 +196,6 @@ class Message:
     
     @classmethod
     def create_call_reject(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
-        """Create CALL_REJECT message"""
         return cls.create(
             sender_id=sender_id,
             sender_name=sender_name,
@@ -217,7 +206,6 @@ class Message:
     
     @classmethod
     def create_call_end(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
-        """Create CALL_END message"""
         return cls.create(
             sender_id=sender_id,
             sender_name=sender_name,

@@ -1,2 +1,1 @@
-"""Call management module"""
 

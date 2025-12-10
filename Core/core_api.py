@@ -22,20 +22,19 @@ log = logging.getLogger(__name__)
 
 class CoreSignals(QObject):
     
-    message_received = Signal(dict)  # payload dict
-    peer_updated = Signal(dict)  # peer_info dict
-    temp_peer_updated = Signal(dict)  # peer_info dict
-    temp_peer_removed = Signal(str)  # peer_id
-    friend_request_received = Signal(str, str)  # peer_id, display_name
-    friend_accepted = Signal(str)  # peer_id
-    friend_rejected = Signal(str)  # peer_id
+    message_received = Signal(dict)
+    peer_updated = Signal(dict)
+    temp_peer_updated = Signal(dict)
+    temp_peer_removed = Signal(str)
+    friend_request_received = Signal(str, str)
+    friend_accepted = Signal(str)
+    friend_rejected = Signal(str)
     
-    # Call signals
-    call_request_received = Signal(str, str, str)  # peer_id, peer_name, call_type
-    call_accepted = Signal(str)  # peer_id
-    call_rejected = Signal(str)  # peer_id
-    call_ended = Signal(str)  # peer_id
-    remote_video_frame = Signal(bytes)  # JPEG frame bytes
+    call_request_received = Signal(str, str, str)
+    call_accepted = Signal(str)
+    call_rejected = Signal(str)
+    call_ended = Signal(str)
+    remote_video_frame = Signal(bytes)
 
 def _format_time(ts: float) -> str:
     return time.strftime("%H:%M", time.localtime(ts))
@@ -63,52 +62,44 @@ class ChatCore:
         self._on_message_callback = on_message_callback
         self._on_peer_update = on_peer_update
         self._on_temp_peer_update: Optional[Callable[[Dict], None]] = None
-        self._on_friend_request: Optional[Callable[[str, str], None]] = None  # peer_id, display_name
-        self._on_friend_accepted: Optional[Callable[[str], None]] = None  # peer_id
-        self._on_friend_rejected: Optional[Callable[[str], None]] = None  # peer_id
+        self._on_friend_request: Optional[Callable[[str, str], None]] = None
+        self._on_friend_accepted: Optional[Callable[[str], None]] = None
+        self._on_friend_rejected: Optional[Callable[[str], None]] = None
 
         self.router = MessageRouter()
         self.peer_id = self.router.peer_id
         self.local_ip = ""
         self._running = False
-        
-        # Call manager
         self.call_manager = CallManager()
         self.call_manager.on_call_state_changed = self._on_call_state_changed
         self.call_manager.on_remote_video_frame = self._on_remote_video_frame
         self.call_manager.on_error = self._on_call_error
 
     def start(self):
-        
         if self._running:
             return
-        
+
         self.router.set_peer_callback(self._handle_peer_update)
         self.router.set_friend_request_callback(self._handle_friend_request)
         self.router.set_friend_accepted_callback(self._handle_friend_accepted)
         self.router.set_friend_rejected_callback(self._handle_friend_rejected)
-        
-        # Set call callbacks
+
         self.router.set_call_request_callback(self._handle_call_request)
         self.router.set_call_accept_callback(self._handle_call_accept)
         self.router.set_call_reject_callback(self._handle_call_reject)
         self.router.set_call_end_callback(self._handle_call_end)
-        
+
         self.router.connect_core(self.username, self.display_name, self.tcp_port, self._handle_router_message)
-        
+
         self.peer_id = self.router.peer_id
         self.tcp_port = self.router.tcp_port
-        
-        # Get LAN IP for display and connection
+
         from Core.utils.network_mode import get_local_ip
         self.local_ip = get_local_ip()
-        print(f"[ChatCore] My local_ip: {self.local_ip}")
         log.info("Local IP: %s", self.local_ip)
-        
-        # Pass local_ip to router so it can include in HELLO messages
+
         self.router.local_ip = self.local_ip
-        print(f"[ChatCore] Set router.local_ip to: {self.router.local_ip}")
-        
+
         self._running = True
         log.info("ChatCore started successfully (peer_id: %s, tcp_port: %s, local_ip: %s)", 
                 self.peer_id, self.tcp_port, self.local_ip)
@@ -136,11 +127,9 @@ class ChatCore:
         return [self._message_to_dict(msg) for msg in history]
     
     def add_peer(self, peer_id: str) -> bool:
-        # Legacy method - no longer used with Add Friend by IP
         return False
     
     def add_peer_by_ip(self, ip: str, port: int, display_name: str = "Unknown") -> Tuple[bool, Optional[str]]:
-        """Add a friend directly by IP and port"""
         return self.router.add_peer_by_ip(ip, port, display_name)
     
     def set_friend_request_callback(self, callback: Optional[Callable[[str, str], None]]):
@@ -168,20 +157,9 @@ class ChatCore:
         return self.router.send_friend_reject(peer_id)
     
     def cleanup_offline_peers(self, max_offline_time: float = 600.0) -> int:
-        # Offline cleanup removed - status is runtime-only based on ONLINE/OFFLINE events
         return 0
-    
-    # ====== Call Methods ======
-    
+
     def start_call(self, peer_id: str, call_type: str) -> bool:
-        """Start a voice or video call
-        Args:
-            peer_id: ID of peer to call
-            call_type: 'voice' or 'video'
-        Returns:
-            True if call started successfully
-        """
-        # Get peer info
         peers = self.router.get_known_peers()
         peer = next((p for p in peers if p.peer_id == peer_id), None)
         
@@ -193,7 +171,6 @@ class ChatCore:
             log.warning(f"[Call] Cannot call offline peer {peer.display_name}")
             return False
         
-        # Start outgoing call
         call_type_enum = CallType.VIDEO if call_type == "video" else CallType.VOICE
         success, audio_port, video_port = self.call_manager.start_outgoing_call(
             peer_id, peer.display_name, peer.ip, call_type_enum
@@ -202,7 +179,6 @@ class ChatCore:
         if not success:
             return False
         
-        # Send CALL_REQUEST message
         call_request_msg = Message.create_call_request(
             sender_id=self.peer_id,
             sender_name=self.display_name,
@@ -215,8 +191,6 @@ class ChatCore:
         return self.router.peer_client.send(peer.ip, peer.tcp_port, call_request_msg)
     
     def accept_call(self, peer_id: str) -> bool:
-        """Accept an incoming call"""
-        # Get peer info
         peers = self.router.get_known_peers()
         peer = next((p for p in peers if p.peer_id == peer_id), None)
         
@@ -224,13 +198,11 @@ class ChatCore:
             log.warning(f"[Call] Cannot accept call from unknown peer")
             return False
         
-        # Accept the incoming call (this sets state to INCOMING and starts receivers)
         success, audio_port, video_port = self.call_manager.accept_incoming_call()
         
         if not success:
             return False
         
-        # Send CALL_ACCEPT message
         accept_msg = Message.create_call_accept(
             sender_id=self.peer_id,
             sender_name=self.display_name,
@@ -242,7 +214,6 @@ class ChatCore:
         sent = self.router.peer_client.send(peer.ip, peer.tcp_port, accept_msg)
         
         if sent:
-            # Start media streams
             media_started = self.call_manager.start_media_streams(
                 self.call_manager.peer_audio_port,
                 self.call_manager.peer_video_port
@@ -253,15 +224,12 @@ class ChatCore:
                 self.call_manager.end_call()
                 return False
         else:
-            # Failed to send accept message, cleanup
             self.call_manager.end_call()
             return False
         
         return True
     
     def reject_call(self, peer_id: str) -> bool:
-        """Reject an incoming call"""
-        # Get peer info from call manager if not in peers list yet
         peer_ip = None
         peer_port = None
         
@@ -272,10 +240,8 @@ class ChatCore:
             peer_ip = peer.ip
             peer_port = peer.tcp_port
         elif self.call_manager.peer_ip:
-            # Use info from call manager
             peer_ip = self.call_manager.peer_ip
-            # Need to find port - assume standard
-            peer_port = 55000  # TODO: Get actual port
+            peer_port = 55000
         
         if not peer_ip:
             return False
@@ -286,7 +252,6 @@ class ChatCore:
             receiver_id=peer_id
         )
         
-        # Clear call manager state
         self.call_manager.peer_id = None
         self.call_manager.peer_name = None
         self.call_manager.peer_ip = None
@@ -295,18 +260,15 @@ class ChatCore:
         return self.router.peer_client.send(peer_ip, peer_port, reject_msg)
     
     def end_call(self) -> bool:
-        """End the current call"""
         if not self.call_manager.is_in_call():
             return False
         
         peer_id = self.call_manager.peer_id
         
-        # Get peer info
         peers = self.router.get_known_peers()
         peer = next((p for p in peers if p.peer_id == peer_id), None)
         
         if peer:
-            # Send CALL_END message
             end_msg = Message.create_call_end(
                 sender_id=self.peer_id,
                 sender_name=self.display_name,
@@ -314,77 +276,59 @@ class ChatCore:
             )
             self.router.peer_client.send(peer.ip, peer.tcp_port, end_msg)
         
-        # End call in manager
         self.call_manager.end_call()
         self.signals.call_ended.emit(peer_id)
         
         return True
     
     def _on_call_state_changed(self, state: CallState):
-        """Callback when call state changes"""
         log.info(f"[Call] State changed to {state.value}")
     
     def _on_remote_video_frame(self, frame_bytes: bytes):
-        """Callback when remote video frame received"""
         self.signals.remote_video_frame.emit(frame_bytes)
     
     def _on_call_error(self, error: str):
-        """Callback when call error occurs"""
         log.error(f"[Call] Error: {error}")
     
     def _handle_call_request(self, peer_id: str, peer_name: str, call_type: str,
                             audio_port: int, video_port: int, peer_ip: str):
-        """Handle incoming call request from message router"""
         log.info(f"[Call] Incoming {call_type} call from {peer_name}")
         
-        # Prepare incoming call (save info, don't change state yet)
         call_type_enum = CallType.VIDEO if call_type == "video" else CallType.VOICE
         can_accept = self.call_manager.prepare_incoming_call(
             peer_id, peer_name, peer_ip, call_type_enum, audio_port, video_port
         )
         
         if can_accept:
-            # Emit signal to GUI to show incoming call dialog
             self.signals.call_request_received.emit(peer_id, peer_name, call_type)
         else:
-            # Already in call, send REJECT automatically
             log.warning(f"[Call] Cannot accept call - already in call")
             self.reject_call(peer_id)
     
     def _handle_call_accept(self, peer_id: str, audio_port: int, video_port: int):
-        """Handle call accept from message router"""
         log.info(f"[Call] Call accepted by peer")
         
-        # Start media streams
         success = self.call_manager.start_media_streams(audio_port, video_port)
         
         if success:
-            # Emit signal to GUI
             self.signals.call_accepted.emit(peer_id)
         else:
-            # Failed to start media, cleanup and notify
             log.error("[Call] Failed to start media streams after accept")
             self.call_manager.end_call()
-            self.signals.call_rejected.emit(peer_id)  # Reuse rejected signal to close dialogs
+            self.signals.call_rejected.emit(peer_id)
     
     def _handle_call_reject(self, peer_id: str):
-        """Handle call reject from message router"""
         log.info(f"[Call] Call rejected by peer")
         
-        # End call in manager
         self.call_manager.end_call()
         
-        # Emit signal to GUI
         self.signals.call_rejected.emit(peer_id)
     
     def _handle_call_end(self, peer_id: str):
-        """Handle call end from message router"""
         log.info(f"[Call] Call ended by peer")
         
-        # End call in manager
         self.call_manager.end_call()
         
-        # Emit signal to GUI
         self.signals.call_ended.emit(peer_id)
 
     def _handle_router_message(self, message: Message):
@@ -423,10 +367,8 @@ class ChatCore:
         }
 
     def _message_to_dict(self, message: Message) -> Dict:
-        # Determine if this message was sent by the local peer
         is_sender = bool(self.peer_id and message.sender_id == self.peer_id)
         
-        # Determine the peer_id (the other peer in the conversation)
         peer_id = message.receiver_id if is_sender else message.sender_id
         
         local_file_path = None

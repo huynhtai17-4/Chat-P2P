@@ -3,9 +3,9 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor # [THÊM MỚI] Import QColor
+from PySide6.QtGui import QColor
 
-from ..utils.elide_label import ElideLabel  # Thay 'elide_label' bằng tên file thực tế nếu khác
+from ..utils.elide_label import ElideLabel
 
 class ChatItemWidget(QFrame):
     
@@ -21,8 +21,8 @@ class ChatItemWidget(QFrame):
            
             shadow = QGraphicsDropShadowEffect(self)
             shadow.setBlurRadius(15)
-            shadow.setOffset(0, 3) # Hơi đổ bóng xuống dưới
-            shadow.setColor(QColor(0, 0, 0, 80)) # Màu đen, 30% độ mờ
+            shadow.setOffset(0, 3)
+            shadow.setColor(QColor(0, 0, 0, 80))
             self.setGraphicsEffect(shadow)
            
         else:
@@ -39,7 +39,6 @@ class ChatItemWidget(QFrame):
         self.avatar = QLabel()
         self.avatar.setObjectName("AvatarLabel")
         self.avatar.setFixedSize(40, 40)
-        # Load default avatar
         from ..utils.avatar import load_circular_pixmap
         import os
         default_avatar_path = "Gui/assets/images/avatar1.jpg"
@@ -52,7 +51,7 @@ class ChatItemWidget(QFrame):
         self.online_indicator = QLabel()
         self.online_indicator.setObjectName("OnlineIndicator")
         self.online_indicator.setFixedSize(12, 12)
-        self.online_indicator.setVisible(False)  # Ẩn mặc định
+        self.online_indicator.setVisible(False)
         avatar_layout.addWidget(self.online_indicator, 0, Qt.AlignRight | Qt.AlignBottom)
        
         text_layout = QVBoxLayout()
@@ -63,7 +62,7 @@ class ChatItemWidget(QFrame):
        
         message_label = ElideLabel(message)
         message_label.setObjectName("MessageLabel")
-        message_label.setElideMode(Qt.ElideRight)  # Elide bên phải (mặc định)
+        message_label.setElideMode(Qt.ElideRight)
        
         text_layout.addWidget(name_label)
         text_layout.addWidget(message_label)
@@ -81,9 +80,9 @@ class ChatItemWidget(QFrame):
             count_label.setAlignment(Qt.AlignCenter)
             time_layout.addWidget(count_label, 0, Qt.AlignRight)
         else:
-            time_layout.addStretch() # Thêm stretch nếu không có unread
+            time_layout.addStretch()
         main_layout.addWidget(avatar_container)
-        main_layout.addLayout(text_layout, 1) # 1 = co giãn
+        main_layout.addLayout(text_layout, 1)
         main_layout.addLayout(time_layout)
         
         self.contact_name = name
@@ -119,14 +118,12 @@ class ChatItemWidget(QFrame):
             self.online_indicator.setVisible(is_online)
     
     def set_avatar(self, avatar_path: str = None):
-        """Set avatar for this chat item"""
         from ..utils.avatar import load_circular_pixmap
         import os
         
         if avatar_path and os.path.exists(avatar_path):
             pixmap = load_circular_pixmap(avatar_path, size=40)
         else:
-            # Use default avatar
             default_path = "Gui/assets/images/avatar1.jpg"
             pixmap = load_circular_pixmap(default_path, size=40)
         

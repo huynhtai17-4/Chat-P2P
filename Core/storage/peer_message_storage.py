@@ -47,7 +47,6 @@ class PeerMessageStorage:
             return []
     
     def _save_raw_messages(self, messages: List[dict]):
-        # Ensure parent directory exists
         try:
             self.messages_file.parent.mkdir(parents=True, exist_ok=True)
         except Exception as e:
