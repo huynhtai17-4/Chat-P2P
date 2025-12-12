@@ -58,10 +58,9 @@ class CallManager:
     def start_outgoing_call(self, peer_id: str, peer_name: str, peer_ip: str, 
                            call_type: CallType) -> tuple[bool, int, int]:
         if self.state != CallState.IDLE:
-            log.warning("[CallManager] Cannot start call - already in call")
+            log.warning(f"[CallManager] Cannot start call - state is {self.state.value}")
             return False, 0, 0
         
-        self.state = CallState.OUTGOING
         self.call_type = call_type
         self.peer_id = peer_id
         self.peer_name = peer_name
@@ -70,9 +69,16 @@ class CallManager:
         log.info(f"[CallManager] Starting {call_type.value} call to {peer_name}")
 
         if not self._start_receivers(call_type):
+            log.error("[CallManager] Failed to start receivers, resetting to IDLE")
             self._cleanup()
+            self.state = CallState.IDLE
+            self.call_type = None
+            self.peer_id = None
+            self.peer_name = None
+            self.peer_ip = None
             return False, 0, 0
-
+        
+        self.state = CallState.OUTGOING
         video_port = self.local_video_port if call_type == CallType.VIDEO else 0
 
         self._notify_state_changed()
@@ -99,20 +105,28 @@ class CallManager:
     
     def accept_incoming_call(self) -> tuple[bool, int, int]:
         if self.state != CallState.IDLE:
-            log.warning("[CallManager] Cannot accept call - already in call")
+            log.warning(f"[CallManager] Cannot accept call - state is {self.state.value}")
             return False, 0, 0
         
         if not self.peer_id or not self.call_type:
             log.warning("[CallManager] No incoming call to accept")
             return False, 0, 0
         
-        self.state = CallState.INCOMING
         log.info(f"[CallManager] Accepting {self.call_type.value} call from {self.peer_name}")
         
         if not self._start_receivers(self.call_type):
+            log.error("[CallManager] Failed to start receivers, resetting to IDLE")
             self._cleanup()
+            self.state = CallState.IDLE
+            self.call_type = None
+            self.peer_id = None
+            self.peer_name = None
+            self.peer_ip = None
+            self.peer_audio_port = None
+            self.peer_video_port = None
             return False, 0, 0
         
+        self.state = CallState.INCOMING
         video_port = self.local_video_port if self.call_type == CallType.VIDEO else 0
         
         return True, self.local_audio_port, video_port

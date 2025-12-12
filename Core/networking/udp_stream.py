@@ -71,20 +71,30 @@ class UDPReceiver:
             return True
         except Exception as e:
             log.error(f"[UDPReceiver] Failed to start on port {self.port}: {e}")
+            if self.sock:
+                try:
+                    self.sock.close()
+                except:
+                    pass
+                self.sock = None
             return False
     
     def stop(self):
+        if not self._running:
+            return
+        
         self._stop_event.set()
         self._running = False
+        
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2.0)
         
         if self.sock:
             try:
                 self.sock.close()
             except:
                 pass
-        
-        if self._thread and self._thread.is_alive():
-            self._thread.join(timeout=2.0)
+            self.sock = None
         
         log.info(f"[UDPReceiver] Stopped on port {self.port}")
     
