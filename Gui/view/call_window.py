@@ -39,24 +39,33 @@ class ActiveCallWindow(QWidget):
         layout.setSpacing(0)
         
         if self.call_type == "video":
+            from PySide6.QtWidgets import QStackedLayout
+            
             video_container = QFrame()
             video_container.setObjectName("VideoContainer")
-            video_layout = QVBoxLayout(video_container)
-            video_layout.setContentsMargins(0, 0, 0, 0)
             
             self.remote_video_label = QLabel("Waiting for video...")
             self.remote_video_label.setObjectName("RemoteVideoLabel")
             self.remote_video_label.setAlignment(Qt.AlignCenter)
             self.remote_video_label.setMinimumSize(640, 480)
-            video_layout.addWidget(self.remote_video_label)
             
             self.local_video_label = QLabel()
             self.local_video_label.setObjectName("LocalVideoLabel")
             self.local_video_label.setFixedSize(160, 120)
-            self.local_video_label.move(620, 20)
-            self.local_video_label.setParent(video_container)
-            self.local_video_label.raise_()
-            self.local_video_label.show()
+            self.local_video_label.setAlignment(Qt.AlignCenter)
+            
+            stacked_layout = QStackedLayout(video_container)
+            stacked_layout.setStackingMode(QStackedLayout.StackAll)
+            stacked_layout.addWidget(self.remote_video_label)
+            
+            overlay_widget = QWidget()
+            overlay_widget.setAttribute(Qt.WA_TransparentForMouseEvents)
+            overlay_layout = QVBoxLayout(overlay_widget)
+            overlay_layout.setContentsMargins(10, 10, 10, 10)
+            overlay_layout.addWidget(self.local_video_label, alignment=Qt.AlignTop | Qt.AlignRight)
+            overlay_layout.addStretch()
+            
+            stacked_layout.addWidget(overlay_widget)
             
             layout.addWidget(video_container, 1)
         else:
