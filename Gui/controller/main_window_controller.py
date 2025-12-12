@@ -686,14 +686,17 @@ class MainWindowController(QObject):
         if not self._active_call_window:
             return
         
-        if hasattr(self.chat_core, 'call_manager') and self.chat_core.call_manager:
-            if hasattr(self.chat_core.call_manager, 'get_local_frame'):
-                frame = self.chat_core.call_manager.get_local_frame()
-                if frame is not None and hasattr(self._active_call_window, 'update_local_video_frame'):
-                    try:
+        try:
+            if hasattr(self.chat_core, 'call_manager') and self.chat_core.call_manager:
+                call_mgr = self.chat_core.call_manager
+                
+                if not call_mgr.video_capture:
+                    return
+                
+                frame = call_mgr.get_local_frame()
+                if frame is not None:
+                    if hasattr(self._active_call_window, 'update_local_video_frame'):
                         self._active_call_window.update_local_video_frame(frame)
-                    except Exception as e:
-                        log.warning(f"[Controller] Failed to update local video: {e}")
-                elif frame is None:
-                    log.debug("[Controller] No local frame available yet")
+        except Exception as e:
+            log.error(f"[Controller] Error in _update_local_video: {e}", exc_info=True)
 

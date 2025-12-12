@@ -92,18 +92,25 @@ class VideoCapture:
             return False
     
     def _find_available_camera(self) -> Optional[int]:
+        log.info("[VideoCapture] Searching for available camera...")
         for i in range(5):
             try:
+                log.debug(f"[VideoCapture] Testing camera index {i}...")
                 test_cap = cv2.VideoCapture(i)
                 if test_cap.isOpened():
                     ret, frame = test_cap.read()
                     test_cap.release()
                     if ret and frame is not None:
-                        log.info(f"[VideoCapture] Found available camera at index {i}")
+                        log.info(f"[VideoCapture] ✓ Found working camera at index {i}")
                         return i
+                    else:
+                        log.debug(f"[VideoCapture] Camera {i} opened but cannot read frame")
+                else:
+                    log.debug(f"[VideoCapture] Camera {i} cannot be opened")
             except Exception as e:
-                log.debug(f"[VideoCapture] Camera {i} test failed: {e}")
+                log.debug(f"[VideoCapture] Camera {i} test exception: {e}")
                 continue
+        log.warning("[VideoCapture] ✗ No working camera found in indices 0-4")
         return None
     
     def stop(self):

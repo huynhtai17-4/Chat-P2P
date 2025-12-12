@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Any
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QFrame
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtGui import QIcon, QPixmap, QImage
 from PySide6.QtCore import QSize
 
@@ -32,6 +32,9 @@ class ActiveCallWindow(QWidget):
             self.setFixedSize(400, 300)
         
         self._init_ui()
+        
+        if call_type == "video":
+            QTimer.singleShot(100, self._position_local_video)
     
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -39,33 +42,25 @@ class ActiveCallWindow(QWidget):
         layout.setSpacing(0)
         
         if self.call_type == "video":
-            from PySide6.QtWidgets import QStackedLayout
-            
             video_container = QFrame()
             video_container.setObjectName("VideoContainer")
+            video_container_layout = QVBoxLayout(video_container)
+            video_container_layout.setContentsMargins(0, 0, 0, 0)
+            video_container_layout.setSpacing(0)
             
             self.remote_video_label = QLabel("Waiting for video...")
             self.remote_video_label.setObjectName("RemoteVideoLabel")
             self.remote_video_label.setAlignment(Qt.AlignCenter)
             self.remote_video_label.setMinimumSize(640, 480)
+            video_container_layout.addWidget(self.remote_video_label)
             
-            self.local_video_label = QLabel()
+            self.local_video_label = QLabel("Local Camera")
             self.local_video_label.setObjectName("LocalVideoLabel")
             self.local_video_label.setFixedSize(160, 120)
             self.local_video_label.setAlignment(Qt.AlignCenter)
-            
-            stacked_layout = QStackedLayout(video_container)
-            stacked_layout.setStackingMode(QStackedLayout.StackAll)
-            stacked_layout.addWidget(self.remote_video_label)
-            
-            overlay_widget = QWidget()
-            overlay_widget.setAttribute(Qt.WA_TransparentForMouseEvents)
-            overlay_layout = QVBoxLayout(overlay_widget)
-            overlay_layout.setContentsMargins(10, 10, 10, 10)
-            overlay_layout.addWidget(self.local_video_label, alignment=Qt.AlignTop | Qt.AlignRight)
-            overlay_layout.addStretch()
-            
-            stacked_layout.addWidget(overlay_widget)
+            self.local_video_label.setParent(video_container)
+            self.local_video_label.raise_()
+            self.local_video_label.show()
             
             layout.addWidget(video_container, 1)
         else:
@@ -165,7 +160,13 @@ class ActiveCallWindow(QWidget):
             logging.getLogger(__name__).error(f"[CallWindow] Failed to display frame: {e}")
     
     def update_local_video_frame(self, frame: Any):
-        if not hasattr(self, 'local_video_label') or frame is None:
+        if not hasattr(self, 'local_video_label'):
+            return
+        
+        if frame is None:
+            return
+        
+        if not CV2_AVAILABLE:
             return
         
         try:
@@ -186,7 +187,7 @@ class ActiveCallWindow(QWidget):
             self.local_video_label.setPixmap(scaled_pixmap)
         except Exception as e:
             import logging
-            logging.getLogger(__name__).error(f"[CallWindow] Failed to display local frame: {e}")
+            logging.getLogger(__name__).error(f"[CallWindow] Failed to display local frame: {e}", exc_info=True)
     
     def _on_mute_toggle(self, checked: bool):
         if checked:
@@ -205,4 +206,21 @@ class ActiveCallWindow(QWidget):
     def _on_end_call(self):
         self.call_ended.emit()
         self.close()
+    
+    def _position_local_video(self):
+        if hasattr(self, 'local_video_label') and hasattr(self, 'remote_video_label'):
+            parent_width = self.remote_video_label.width()
+            parent_height = self.remote_video_label.height()
+            
+            x = parent_width - self.local_video_label.width() - 20
+            y = 20
+            
+            self.local_video_label.move(x, y)
+            self.local_video_label.raise_()
+            self.local_video_label.show()
+    
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.call_type == "video":
+            self._position_local_video()
 
