@@ -146,11 +146,17 @@ class CallManager:
             try:
                 self.video_capture = VideoCapture(on_frame=self._on_video_captured)
                 if not self.video_capture.start():
-                    raise RuntimeError("Failed to start video capture")
+                    error_msg = "Failed to start camera. Please check:\n1. Camera permissions\n2. Camera is not used by another app\n3. Camera drivers are installed"
+                    log.error(f"[CallManager] Video initialization failed: {error_msg}")
+                    if self.on_error:
+                        self.on_error(error_msg)
+                    self.video_capture = None
             except Exception as e:
-                log.error(f"[CallManager] Video initialization failed: {e}")
+                error_msg = f"Camera error: {e}\n\nPlease check:\n1. Camera permissions in Windows Settings\n2. Camera is not used by another app\n3. Camera drivers are installed"
+                log.error(f"[CallManager] Video initialization failed: {e}", exc_info=True)
                 if self.on_error:
-                    self.on_error(f"Camera error: {e}")
+                    self.on_error(error_msg)
+                self.video_capture = None
         
         self.state = CallState.ACTIVE
         self._notify_state_changed()

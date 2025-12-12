@@ -39,16 +39,33 @@ class VideoCapture:
         self._paused = False
         self._latest_frame = None
     
-    def start(self, camera_index: int = 0) -> bool:
+    def start(self, camera_index: int = None) -> bool:
         if self._running:
             return True
+        
+        if camera_index is None:
+            camera_index = self._find_available_camera()
+            if camera_index is None:
+                log.error("[VideoCapture] No available camera found")
+                return False
         
         try:
             self.cap = cv2.VideoCapture(camera_index)
             
             if not self.cap.isOpened():
-                log.error("[VideoCapture] Failed to open camera")
-                return False
+                log.error(f"[VideoCapture] Failed to open camera {camera_index}")
+                if camera_index == 0:
+                    log.info("[VideoCapture] Trying to find alternative camera...")
+                    alt_index = self._find_available_camera()
+                    if alt_index is not None and alt_index != 0:
+                        self.cap = cv2.VideoCapture(alt_index)
+                        if not self.cap.isOpened():
+                            log.error(f"[VideoCapture] Alternative camera {alt_index} also failed")
+                            return False
+                        camera_index = alt_index
+                        log.info(f"[VideoCapture] Using alternative camera {alt_index}")
+                    else:
+                        return False
             
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, VIDEO_WIDTH)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, VIDEO_HEIGHT)
@@ -60,6 +77,8 @@ class VideoCapture:
                     initial_frame = cv2.resize(initial_frame, (VIDEO_WIDTH, VIDEO_HEIGHT))
                 self._latest_frame = initial_frame.copy()
                 log.info("[VideoCapture] Captured initial frame for preview")
+            else:
+                log.warning("[VideoCapture] Could not read initial frame, but camera opened")
             
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._capture_loop, daemon=True)
@@ -69,8 +88,23 @@ class VideoCapture:
             log.info(f"[VideoCapture] Started capturing from camera {camera_index}")
             return True
         except Exception as e:
-            log.error(f"[VideoCapture] Failed to start: {e}")
+            log.error(f"[VideoCapture] Failed to start: {e}", exc_info=True)
             return False
+    
+    def _find_available_camera(self) -> Optional[int]:
+        for i in range(5):
+            try:
+                test_cap = cv2.VideoCapture(i)
+                if test_cap.isOpened():
+                    ret, frame = test_cap.read()
+                    test_cap.release()
+                    if ret and frame is not None:
+                        log.info(f"[VideoCapture] Found available camera at index {i}")
+                        return i
+            except Exception as e:
+                log.debug(f"[VideoCapture] Camera {i} test failed: {e}")
+                continue
+        return None
     
     def stop(self):
         self._stop_event.set()
