@@ -35,9 +35,11 @@ class CallManager:
         log.info("[CallManager] Initialized with state=IDLE")
 
         self.local_audio_port = 56000
-        self.local_video_port = 57000
+        self.local_video_port = 58000
         self.peer_audio_port: Optional[int] = None
         self.peer_video_port: Optional[int] = None
+
+        log.info(f"[CallManager] Ports configured - Audio: {self.local_audio_port}, Video: {self.local_video_port}")
 
         self.audio_capture: Optional[AudioCapture] = None
         self.audio_playback: Optional[AudioPlayback] = None
@@ -80,6 +82,8 @@ class CallManager:
         
         self.state = CallState.OUTGOING
         video_port = self.local_video_port if call_type == CallType.VIDEO else 0
+
+        log.info(f"[CallManager] Using ports - Audio: {self.local_audio_port}, Video: {video_port}")
 
         self._notify_state_changed()
         return True, self.local_audio_port, video_port

@@ -62,28 +62,28 @@ class ChatCore:
     def start(self):
         if self._running:
             return
-
+        
         self.router.set_peer_callback(self._handle_peer_update)
         self.router.set_friend_request_callback(self._handle_friend_request)
         self.router.set_friend_accepted_callback(self._handle_friend_accepted)
         self.router.set_friend_rejected_callback(self._handle_friend_rejected)
-
+        
         self.router.set_call_request_callback(self._handle_call_request)
         self.router.set_call_accept_callback(self._handle_call_accept)
         self.router.set_call_reject_callback(self._handle_call_reject)
         self.router.set_call_end_callback(self._handle_call_end)
-
+        
         self.router.connect_core(self.username, self.display_name, self.tcp_port, self._handle_router_message)
-
+        
         self.peer_id = self.router.peer_id
         self.tcp_port = self.router.tcp_port
-
+        
         from Core.utils.network_mode import get_local_ip
         self.local_ip = get_local_ip()
         log.info("Local IP: %s", self.local_ip)
-
+        
         self.router.local_ip = self.local_ip
-
+        
         self._running = True
         log.info("ChatCore started successfully (peer_id: %s, tcp_port: %s, local_ip: %s)", 
                 self.peer_id, self.tcp_port, self.local_ip)
