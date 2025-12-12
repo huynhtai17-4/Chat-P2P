@@ -86,13 +86,6 @@ class DataManager:
             log.info("Deleted peer %s from storage", peer_id)
         else:
             log.warning("Peer %s not found in storage, cannot delete", peer_id)
-    
-    def remove_peer(self, peer_id: str):
-        
-        peers = self.load_peers()
-        if peer_id in peers:
-            del peers[peer_id]
-            self.save_peers(peers)
 
     def _get_peer_storage(self, peer_id: str) -> PeerMessageStorage:
         if peer_id not in self._peer_storages:
@@ -114,9 +107,3 @@ class DataManager:
     def get_peer_files_dir(self, peer_id: str) -> Path:
         storage = self._get_peer_storage(peer_id)
         return storage.get_files_dir()
-
-    def load_settings(self) -> Dict:
-        return self._read_json(config.SETTINGS_FILENAME, {})
-
-    def save_settings(self, settings: Dict):
-        self._write_json(config.SETTINGS_FILENAME, settings)

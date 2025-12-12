@@ -10,6 +10,7 @@ class PeerInfo:
     ip: str
     tcp_port: int
     status: str = "offline"
+    avatar_path: str = None
 
     def to_dict(self) -> Dict:
         return {
@@ -17,6 +18,7 @@ class PeerInfo:
             "display_name": self.display_name,
             "ip": self.ip,
             "tcp_port": self.tcp_port,
+            "avatar_path": self.avatar_path,
         }
 
     @classmethod
@@ -27,4 +29,5 @@ class PeerInfo:
             ip=data.get("ip", ""),
             tcp_port=data.get("tcp_port", 0),
             status="offline",
+            avatar_path=data.get("avatar_path"),
         )

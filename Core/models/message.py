@@ -19,6 +19,7 @@ class Message:
     file_name: str = None
     file_data: str = None
     audio_data: str = None
+    video_data: str = None
 
     def to_dict(self) -> Dict:
         return asdict(self)
@@ -107,13 +108,17 @@ class Message:
         )
     
     @classmethod
-    def create_online_status(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
+    def create_online_status(cls, sender_id: str, sender_name: str, receiver_id: str, avatar_path: str = None) -> "Message":
+        
+        content_data = {"status": "ONLINE"}
+        if avatar_path:
+            content_data["avatar_path"] = avatar_path
         
         return cls.create(
             sender_id=sender_id,
             sender_name=sender_name,
             receiver_id=receiver_id,
-            content="ONLINE",
+            content=json.dumps(content_data),
             msg_type="ONLINE",
         )
     

@@ -297,6 +297,15 @@ class MessageHandlers:
             if sender_ip and sender_ip != "0.0.0.0" and sender_ip != "":
                 peer.ip = sender_ip
             
+            if msg_type == "ONLINE" and message.content:
+                try:
+                    content_data = json.loads(message.content)
+                    if "avatar_path" in content_data:
+                        peer.avatar_path = content_data["avatar_path"]
+                        log.info("[STATUS] Updated avatar_path for %s", peer.display_name)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            
             log.info("[STATUS] ✓ Updated %s (%s): %s -> %s (IP: %s, Port: %s)", 
                     peer.display_name, message.sender_id, old_status, new_status,
                     peer.ip, peer.tcp_port)
@@ -307,7 +316,8 @@ class MessageHandlers:
                     reply_msg = Message.create_online_status(
                         sender_id=self.router.peer_id,
                         sender_name=self.router.display_name or "Unknown",
-                        receiver_id=peer.peer_id
+                        receiver_id=peer.peer_id,
+                        avatar_path=getattr(self.router, 'avatar_path', None)
                     )
                     self.router.peer_client.send(peer.ip, peer.tcp_port, reply_msg)
                     log.info("[STATUS] ✓ Sent ONLINE reply to %s", peer.display_name)

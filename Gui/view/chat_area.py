@@ -25,6 +25,7 @@ class ChatArea(QFrame):
         
         self.current_peer_id = None
         self.current_peer_name = None
+        self.current_peer_avatar = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -62,6 +63,7 @@ class ChatArea(QFrame):
     def set_peer_info(self, peer_name: str, peer_id: str = "", is_online: bool = False, avatar_path: str = None):
         self.current_peer_id = peer_id
         self.current_peer_name = peer_name
+        self.current_peer_avatar = avatar_path
         
         self.header_name.setText(peer_name)
         
@@ -81,6 +83,7 @@ class ChatArea(QFrame):
     def hide_header(self):
         self.current_peer_id = None
         self.current_peer_name = None
+        self.current_peer_avatar = None
         self.header_frame.setVisible(False)
     
     def set_peer_status(self, is_online: bool):
@@ -245,7 +248,11 @@ class ChatArea(QFrame):
             avatar_label = QLabel()
             avatar_label.setObjectName("ChatAvatarLabel")
             avatar_label.setFixedSize(36, 36)
-            avatar_pixmap = load_circular_pixmap("Gui/assets/images/avatar.jpg", size=36)
+            
+            if self.current_peer_avatar and os.path.exists(self.current_peer_avatar):
+                avatar_pixmap = load_circular_pixmap(self.current_peer_avatar, size=36)
+            else:
+                avatar_pixmap = load_circular_pixmap("Gui/assets/images/avatar1.jpg", size=36)
             avatar_label.setPixmap(avatar_pixmap)
 
             row_layout.addWidget(avatar_label)

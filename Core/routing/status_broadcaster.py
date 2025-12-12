@@ -40,7 +40,8 @@ class StatusBroadcaster:
                     message = Message.create_online_status(
                         sender_id=self.router.peer_id,
                         sender_name=self.router.display_name or "Unknown",
-                        receiver_id=peer.peer_id
+                        receiver_id=peer.peer_id,
+                        avatar_path=getattr(self.router, 'avatar_path', None)
                     )
                 else:
                     message = Message.create_offline_status(
@@ -81,7 +82,8 @@ class StatusBroadcaster:
                 message = Message.create_online_status(
                     sender_id=self.router.peer_id,
                     sender_name=self.router.display_name or "Unknown",
-                    receiver_id=peer.peer_id
+                    receiver_id=peer.peer_id,
+                    avatar_path=getattr(self.router, 'avatar_path', None)
                 )
             else:
                 message = Message.create_offline_status(

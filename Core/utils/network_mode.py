@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import platform
 import socket
 import subprocess
@@ -22,10 +21,7 @@ VMWARE_NETWORKS = [
     "192.168.56.",
     "192.168.122.",
     "169.254.",
-]
-
-NETWORK_MODE_SINGLE = "single_machine"
-NETWORK_MODE_LAN = "lan"
+] # Danh sách IP ảo loại bỏ
 
 def _is_virtual_adapter(ip: str) -> bool:
     
@@ -74,9 +70,9 @@ def _get_all_network_ips() -> List[Tuple[str, str]]:
                         if ip and ip != "127.0.0.1":
                             ips.append((interface_name, ip))
         except Exception as e:
-            log.warning("Failed to enumerate network interfaces with psutil: %s", e)
+            log.warning("Khong the lay danh sach IP cua mang bang psutil: %s", e)
     else:
-        log.debug("psutil not available, using fallback IP detection")
+        log.debug("psutil khong co san, su dung phuong phap fallback de lay danh sach IP")
         
         if platform.system() == "Linux":
             try:
@@ -100,7 +96,7 @@ def _get_all_network_ips() -> List[Tuple[str, str]]:
                             if ip and ip != "127.0.0.1" and not ip.startswith("127."):
                                 ips.append((current_interface, ip))
             except Exception as e:
-                log.debug(f"`ip addr` command failed: {e}")
+                log.debug(f"`ip addr` lệnh thất b: {e}")
         
         try:
             hostname = socket.gethostname()
@@ -129,76 +125,6 @@ def _get_all_network_ips() -> List[Tuple[str, str]]:
             log.warning("Failed to get network IP with fallback: %s", e)
     
     return ips
-
-def _count_running_instances() -> int:
-    
-    count = 0
-    
-    if PSUTIL_AVAILABLE:
-        try:
-            current_pid = os.getpid()
-            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-                try:
-                    if proc.info['pid'] == current_pid:
-                        continue
-                    
-                    cmdline = proc.info.get('cmdline', [])
-                    if not cmdline:
-                        continue
-                    
-                    cmdline_str = ' '.join(cmdline).lower()
-                    if 'python' in cmdline_str and 'main.py' in cmdline_str:
-                        count += 1
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-        except Exception as e:
-            log.warning("Failed to count running instances with psutil: %s", e)
-    else:
-        try:
-            if platform.system() == "Windows":
-                result = subprocess.run(
-                    ["tasklist", "/FI", "IMAGENAME eq python.exe", "/FO", "CSV"],
-                    capture_output=True,
-                    text=True,
-                    timeout=2
-                )
-                lines = result.stdout.lower().split('\n')
-                count = sum(1 for line in lines if 'main.py' in line)
-                if count > 0:
-                    count -= 1
-            else:
-                result = subprocess.run(
-                    ["ps", "aux"],
-                    capture_output=True,
-                    text=True,
-                    timeout=2
-                )
-                lines = result.stdout.lower().split('\n')
-                count = sum(1 for line in lines if 'main.py' in line and 'python' in line)
-                if count > 0:
-                    count -= 1
-        except Exception as e:
-            log.warning("Failed to count running instances with fallback: %s", e)
-    
-    return max(0, count)
-
-def detect_network_mode() -> str:
-    
-    instance_count = _count_running_instances()
-    if instance_count > 0:
-        log.info("Detected %s other instance(s) running - using single-machine mode", instance_count)
-        return NETWORK_MODE_SINGLE
-    
-    all_ips = _get_all_network_ips()
-    
-    lan_ips = [(name, ip) for name, ip in all_ips if _is_lan_ip(ip)]
-    
-    if not lan_ips:
-        log.info("No valid LAN IPs found (only virtual adapters) - using single-machine mode")
-        return NETWORK_MODE_SINGLE
-    
-    log.info("Detected LAN mode with %s valid IP(s): %s", len(lan_ips), [ip for _, ip in lan_ips])
-    return NETWORK_MODE_LAN
 
 def get_local_ip(network_mode: Optional[str] = None) -> str:
     all_ips = _get_all_network_ips()
@@ -252,10 +178,3 @@ def get_local_ip(network_mode: Optional[str] = None) -> str:
     
     log.warning("No valid network IP found")
     return ""
-
-def get_broadcast_address(network_mode: Optional[str] = None) -> str:
-    
-    if network_mode is None:
-        network_mode = detect_network_mode()
-    
-    return "255.255.255.255"

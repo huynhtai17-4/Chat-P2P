@@ -76,6 +76,8 @@ class MessageRouter:
             self.tcp_port = tcp_port
             log.info("Using provided TCP port %s (saving to profile)", self.tcp_port)
         
+        self.avatar_path = profile.get("avatar_path")
+        
         profile.update({"display_name": display_name, "peer_id": self.peer_id, "tcp_port": self.tcp_port})
         self.data_manager.save_profile(profile)
 

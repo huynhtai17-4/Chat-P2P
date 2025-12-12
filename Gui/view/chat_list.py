@@ -114,9 +114,9 @@ class ChatList(QFrame):
         self.controller.set_search_input(self.search_input)
         self.controller.set_tab_labels(self.tab_direct, self.tab_groups, self.tab_public)
 
-    def add_chat(self, name, last_message, time_str, unread_count=0, selected=False, is_online=False, peer_id=None):
+    def add_chat(self, name, last_message, time_str, unread_count=0, selected=False, is_online=False, peer_id=None, avatar_path=None):
         
-        chat_item_widget = ChatItemWidget(name, last_message, time_str, unread_count, selected)
+        chat_item_widget = ChatItemWidget(name, last_message, time_str, unread_count, selected, avatar_path=avatar_path)
         chat_item_widget.set_online_status(is_online)
         if peer_id:
             chat_item_widget.peer_id = peer_id
@@ -142,13 +142,15 @@ class ChatList(QFrame):
             unread_count = conv.get('unread_count', 0)
             is_online = conv.get('is_online', False)
             peer_id = conv.get('peer_id', '')
+            avatar_path = conv.get('avatar_path')
 
             chat_item_widget = ChatItemWidget(
                 name=peer_name,
                 message=last_message,
                 time=time_str,
                 unread_count=unread_count,
-                is_active=False
+                is_active=False,
+                avatar_path=avatar_path
             )
             chat_item_widget.set_online_status(is_online)
             chat_item_widget.peer_id = peer_id

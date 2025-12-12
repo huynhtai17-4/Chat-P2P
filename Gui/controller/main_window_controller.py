@@ -107,6 +107,7 @@ class MainWindowController(QObject):
                 "time_str": last_message["time_str"] if last_message else "",
                 "unread_count": self.unread_counts.get(peer_id, 0),
                 "is_online": peer.get("status", "") == "online",
+                "avatar_path": peer.get("avatar_path"),
             })
         
         conversations.sort(key=lambda c: c["last_message_time"], reverse=True)

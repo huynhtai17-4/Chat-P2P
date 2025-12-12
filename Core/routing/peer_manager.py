@@ -16,9 +16,6 @@ class PeerManager:
         with self.router._lock:
             return list(self.router._peers.values())
     
-    def cleanup_offline_peers(self, max_offline_time: float = 600.0) -> int:
-        return 0
-    
     def notify_existing_peers(self):
         
         if not self.router._on_peer_callback:

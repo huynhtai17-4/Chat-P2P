@@ -105,11 +105,12 @@ class MainWindow(QMainWindow):
             if peer_info:
                 peer_name = peer_info.get('display_name', 'Unknown')
                 is_online = peer_info.get('status', '') == 'online'
+                avatar_path = peer_info.get('avatar_path')
                 self.center_panel.set_peer_info(
                     peer_name=peer_name,
                     peer_id=self.controller.current_peer_id,
                     is_online=is_online,
-                    avatar_path=None
+                    avatar_path=avatar_path
                 )
         else:
             self.center_panel.hide_header()
@@ -144,12 +145,13 @@ class MainWindow(QMainWindow):
             peers = self.controller.peers
             peer_info = peers.get(chat_id, {})
             is_online = peer_info.get('status', '') == 'online'
+            avatar_path = peer_info.get('avatar_path')
             
             self.center_panel.set_peer_info(
                 peer_name=chat_name,
                 peer_id=chat_id,
                 is_online=is_online,
-                avatar_path=None
+                avatar_path=avatar_path
             )
         else:
             self.center_panel.hide_header()
@@ -160,18 +162,19 @@ class MainWindow(QMainWindow):
 
     def _on_load_chat_history(self, peer_id: str, history: list):
         if self.center_panel:
-            self.center_panel.load_chat_history(history)
             if peer_id:
                 peers = self.controller.peers
                 peer_info = peers.get(peer_id, {})
                 peer_name = peer_info.get('display_name', 'Unknown')
                 is_online = peer_info.get('status', '') == 'online'
+                avatar_path = peer_info.get('avatar_path')
                 self.center_panel.set_peer_info(
                     peer_name=peer_name,
                     peer_id=peer_id,
                     is_online=is_online,
-                    avatar_path=None
+                    avatar_path=avatar_path
                 )
+            self.center_panel.load_chat_history(history)
 
     def _show_friend_request_dialog(self, peer_id: str, display_name: str):
         if peer_id in self._active_request_dialogs:

@@ -329,6 +329,7 @@ class ChatCore:
             "ip": peer.ip,
             "tcp_port": peer.tcp_port,
             "status": peer.status,
+            "avatar_path": peer.avatar_path,
         }
 
     def _message_to_dict(self, message: Message) -> Dict:

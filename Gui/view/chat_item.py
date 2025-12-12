@@ -9,7 +9,7 @@ from ..utils.elide_label import ElideLabel
 
 class ChatItemWidget(QFrame):
     
-    def __init__(self, name, message, time, unread_count=None, is_active=False):
+    def __init__(self, name, message, time, unread_count=None, is_active=False, avatar_path=None):
         super().__init__()
        
         self.name_label = None
@@ -41,10 +41,13 @@ class ChatItemWidget(QFrame):
         self.avatar.setFixedSize(40, 40)
         from ..utils.avatar import load_circular_pixmap
         import os
-        default_avatar_path = "Gui/assets/images/avatar1.jpg"
-        if os.path.exists(default_avatar_path):
+        
+        if avatar_path and os.path.exists(avatar_path):
+            pixmap = load_circular_pixmap(avatar_path, size=40)
+        else:
+            default_avatar_path = "Gui/assets/images/avatar1.jpg"
             pixmap = load_circular_pixmap(default_avatar_path, size=40)
-            self.avatar.setPixmap(pixmap)
+        self.avatar.setPixmap(pixmap)
         self.avatar.setScaledContents(True)
         avatar_layout.addWidget(self.avatar)
         
