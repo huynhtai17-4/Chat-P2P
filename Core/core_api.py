@@ -356,12 +356,29 @@ class ChatCore:
         except Exception:
             pass
 
+        content = message.content
+        peer_avatar_path = None
+        
+        if message.msg_type in ("text", "image", "file") and content:
+            try:
+                content_data = json.loads(content)
+                if isinstance(content_data, dict) and "text" in content_data:
+                    content = content_data["text"]
+                    peer_avatar_path = content_data.get("avatar_path")
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        
+        if not peer_avatar_path and not is_sender:
+            peer_info = self.router._peers.get(peer_id) if self.router else None
+            if peer_info:
+                peer_avatar_path = peer_info.avatar_path
+
         return {
             "message_id": message.message_id,
             "peer_id": peer_id,
             "sender_id": message.sender_id,
             "sender_name": message.sender_name,
-            "content": message.content,
+            "content": content,
             "timestamp": message.timestamp,
             "time_str": _format_time(message.timestamp),
             "date_str": _format_date(message.timestamp),
@@ -371,4 +388,5 @@ class ChatCore:
             "file_data": getattr(message, 'file_data', None),
             "audio_data": getattr(message, 'audio_data', None),
             "local_file_path": local_file_path,
+            "peer_avatar_path": peer_avatar_path,
         }

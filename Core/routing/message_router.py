@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import uuid
@@ -181,6 +182,19 @@ class MessageRouter:
                 log.debug("[BLOCK] Ignored message from %s (not in friends list)", message.sender_id)
                 return
         
+        if msg_type in ("text", "image", "file") and message.content:
+            try:
+                content_data = json.loads(message.content)
+                if isinstance(content_data, dict) and "avatar_path" in content_data:
+                    with self._lock:
+                        peer = self._peers.get(message.sender_id)
+                        if peer and content_data["avatar_path"]:
+                            peer.avatar_path = content_data["avatar_path"]
+                            log.info("Updated avatar_path for %s from message", peer.display_name)
+                    message.content = content_data.get("text", message.content)
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+        
         log.info("Message from %s (%s): %s", message.sender_name, message.sender_id, message.content)
         
         peer_id = message.sender_id if message.sender_id != self.peer_id else message.receiver_id
@@ -229,11 +243,20 @@ class MessageRouter:
             log.warning("Cannot send message to %s: Invalid port %s", to_peer_id, target.tcp_port)
             return False, None
 
+        if msg_type in ("text", "image", "file"):
+            content_with_avatar = {
+                "text": content,
+                "avatar_path": getattr(self, 'avatar_path', None)
+            }
+            actual_content = json.dumps(content_with_avatar)
+        else:
+            actual_content = content
+        
         message = Message.create(
             sender_id=self.peer_id,
             sender_name=self.display_name or "Unknown",
             receiver_id=to_peer_id,
-            content=content,
+            content=actual_content,
             msg_type=msg_type,
             file_name=file_name,
             file_data=file_data,
