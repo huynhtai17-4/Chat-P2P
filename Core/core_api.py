@@ -364,11 +364,10 @@ class ChatCore:
                 content_data = json.loads(content)
                 if isinstance(content_data, dict) and "text" in content_data:
                     content = content_data["text"]
-                    peer_avatar_path = content_data.get("avatar_path")
             except (json.JSONDecodeError, ValueError, TypeError):
                 pass
         
-        if not peer_avatar_path and not is_sender:
+        if not is_sender:
             peer_info = self.router._peers.get(peer_id) if self.router else None
             if peer_info:
                 peer_avatar_path = peer_info.avatar_path

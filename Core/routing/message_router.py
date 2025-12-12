@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import threading
 import uuid
+from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 from Core.models.message import Message
@@ -78,8 +80,16 @@ class MessageRouter:
             log.info("Using provided TCP port %s (saving to profile)", self.tcp_port)
         
         self.avatar_path = profile.get("avatar_path")
+        if not self.avatar_path:
+            self.avatar_path = "Gui/assets/images/avatar.jpg"
+            log.info("Using default avatar_path: %s", self.avatar_path)
         
-        profile.update({"display_name": display_name, "peer_id": self.peer_id, "tcp_port": self.tcp_port})
+        profile.update({
+            "display_name": display_name, 
+            "peer_id": self.peer_id, 
+            "tcp_port": self.tcp_port,
+            "avatar_path": self.avatar_path
+        })
         self.data_manager.save_profile(profile)
 
         def message_handler(msg, ip, port):
@@ -185,17 +195,38 @@ class MessageRouter:
         if msg_type in ("text", "image", "file") and message.content:
             try:
                 content_data = json.loads(message.content)
-                if isinstance(content_data, dict) and "avatar_path" in content_data:
+                if isinstance(content_data, dict) and "avatar_base64" in content_data and content_data["avatar_base64"]:
                     with self._lock:
                         peer = self._peers.get(message.sender_id)
-                        if peer and content_data["avatar_path"]:
-                            peer.avatar_path = content_data["avatar_path"]
-                            log.info("Updated avatar_path for %s from message", peer.display_name)
-                    message.content = content_data.get("text", message.content)
+                        if peer:
+                            try:
+                                avatar_data = base64.b64decode(content_data["avatar_base64"])
+                                
+                                if self.data_manager:
+                                    peer_dir = self.data_manager.root / "chats" / peer.peer_id
+                                    peer_dir.mkdir(parents=True, exist_ok=True)
+                                    avatar_file = peer_dir / "avatar.jpg"
+                                    with open(avatar_file, 'wb') as f:
+                                        f.write(avatar_data)
+                                    
+                                    peer.avatar_path = str(avatar_file)
+                                    log.info("Saved avatar for %s from message to %s", peer.display_name, avatar_file)
+                                    self.data_manager.update_peer(peer)
+                            except Exception as e:
+                                log.warning("Failed to save avatar for %s: %s", peer.display_name, e)
             except (json.JSONDecodeError, ValueError, TypeError):
                 pass
         
-        log.info("Message from %s (%s): %s", message.sender_name, message.sender_id, message.content)
+        display_content = message.content
+        if msg_type in ("text", "image", "file"):
+            try:
+                content_data = json.loads(message.content)
+                if isinstance(content_data, dict) and "text" in content_data:
+                    display_content = content_data["text"]
+            except:
+                pass
+        
+        log.info("Message from %s (%s): %s", message.sender_name, message.sender_id, display_content)
         
         peer_id = message.sender_id if message.sender_id != self.peer_id else message.receiver_id
         
@@ -244,9 +275,20 @@ class MessageRouter:
             return False, None
 
         if msg_type in ("text", "image", "file"):
+            avatar_base64 = None
+            avatar_path = getattr(self, 'avatar_path', None)
+            if avatar_path:
+                try:
+                    avatar_file = Path(avatar_path)
+                    if avatar_file.exists():
+                        with open(avatar_file, 'rb') as f:
+                            avatar_base64 = base64.b64encode(f.read()).decode('utf-8')
+                except Exception as e:
+                    log.warning("Failed to read avatar file %s: %s", avatar_path, e)
+            
             content_with_avatar = {
                 "text": content,
-                "avatar_path": getattr(self, 'avatar_path', None)
+                "avatar_base64": avatar_base64
             }
             actual_content = json.dumps(content_with_avatar)
         else:

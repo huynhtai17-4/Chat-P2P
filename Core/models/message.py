@@ -108,11 +108,11 @@ class Message:
         )
     
     @classmethod
-    def create_online_status(cls, sender_id: str, sender_name: str, receiver_id: str, avatar_path: str = None) -> "Message":
+    def create_online_status(cls, sender_id: str, sender_name: str, receiver_id: str, avatar_base64: str = None) -> "Message":
         
         content_data = {"status": "ONLINE"}
-        if avatar_path:
-            content_data["avatar_path"] = avatar_path
+        if avatar_base64:
+            content_data["avatar_base64"] = avatar_base64
         
         return cls.create(
             sender_id=sender_id,

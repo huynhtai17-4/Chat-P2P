@@ -1,4 +1,6 @@
+import base64
 import logging
+from pathlib import Path
 from typing import List
 
 from Core.models.message import Message
@@ -37,11 +39,22 @@ class StatusBroadcaster:
             
             try:
                 if status == "online":
+                    avatar_base64 = None
+                    avatar_path = getattr(self.router, 'avatar_path', None)
+                    if avatar_path:
+                        try:
+                            avatar_file = Path(avatar_path)
+                            if avatar_file.exists():
+                                with open(avatar_file, 'rb') as f:
+                                    avatar_base64 = base64.b64encode(f.read()).decode('utf-8')
+                        except Exception as e:
+                            log.warning("Failed to read avatar file %s: %s", avatar_path, e)
+                    
                     message = Message.create_online_status(
                         sender_id=self.router.peer_id,
                         sender_name=self.router.display_name or "Unknown",
                         receiver_id=peer.peer_id,
-                        avatar_path=getattr(self.router, 'avatar_path', None)
+                        avatar_base64=avatar_base64
                     )
                 else:
                     message = Message.create_offline_status(
@@ -79,11 +92,22 @@ class StatusBroadcaster:
         
         try:
             if status == "online":
+                avatar_base64 = None
+                avatar_path = getattr(self.router, 'avatar_path', None)
+                if avatar_path:
+                    try:
+                        avatar_file = Path(avatar_path)
+                        if avatar_file.exists():
+                            with open(avatar_file, 'rb') as f:
+                                avatar_base64 = base64.b64encode(f.read()).decode('utf-8')
+                    except Exception as e:
+                        log.warning("Failed to read avatar file %s: %s", avatar_path, e)
+                
                 message = Message.create_online_status(
                     sender_id=self.router.peer_id,
                     sender_name=self.router.display_name or "Unknown",
                     receiver_id=peer.peer_id,
-                    avatar_path=getattr(self.router, 'avatar_path', None)
+                    avatar_base64=avatar_base64
                 )
             else:
                 message = Message.create_offline_status(

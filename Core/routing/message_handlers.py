@@ -1,5 +1,7 @@
-import logging
+import base64
 import json
+import logging
+from pathlib import Path
 from typing import Optional
 
 from Core.models.message import Message
@@ -300,9 +302,22 @@ class MessageHandlers:
             if msg_type == "ONLINE" and message.content:
                 try:
                     content_data = json.loads(message.content)
-                    if "avatar_path" in content_data:
-                        peer.avatar_path = content_data["avatar_path"]
-                        log.info("[STATUS] Updated avatar_path for %s", peer.display_name)
+                    if "avatar_base64" in content_data and content_data["avatar_base64"]:
+                        try:
+                            avatar_data = base64.b64decode(content_data["avatar_base64"])
+                            
+                            if self.router.data_manager:
+                                peer_dir = self.router.data_manager.root / "chats" / peer.peer_id
+                                peer_dir.mkdir(parents=True, exist_ok=True)
+                                avatar_file = peer_dir / "avatar.jpg"
+                                with open(avatar_file, 'wb') as f:
+                                    f.write(avatar_data)
+                                
+                                peer.avatar_path = str(avatar_file)
+                                log.info("[STATUS] Saved avatar for %s to %s", peer.display_name, avatar_file)
+                                self.router.data_manager.update_peer(peer)
+                        except Exception as e:
+                            log.warning("[STATUS] Failed to save avatar for %s: %s", peer.display_name, e)
                 except (json.JSONDecodeError, ValueError):
                     pass
             
@@ -313,11 +328,22 @@ class MessageHandlers:
             if msg_type == "ONLINE" and old_status != "online":
                 log.info("[STATUS] Replying ONLINE back to %s", peer.display_name)
                 try:
+                    avatar_base64 = None
+                    avatar_path = getattr(self.router, 'avatar_path', None)
+                    if avatar_path:
+                        try:
+                            avatar_file = Path(avatar_path)
+                            if avatar_file.exists():
+                                with open(avatar_file, 'rb') as f:
+                                    avatar_base64 = base64.b64encode(f.read()).decode('utf-8')
+                        except Exception as e:
+                            log.warning("Failed to read avatar file %s: %s", avatar_path, e)
+                    
                     reply_msg = Message.create_online_status(
                         sender_id=self.router.peer_id,
                         sender_name=self.router.display_name or "Unknown",
                         receiver_id=peer.peer_id,
-                        avatar_path=getattr(self.router, 'avatar_path', None)
+                        avatar_base64=avatar_base64
                     )
                     self.router.peer_client.send(peer.ip, peer.tcp_port, reply_msg)
                     log.info("[STATUS] ✓ Sent ONLINE reply to %s", peer.display_name)
