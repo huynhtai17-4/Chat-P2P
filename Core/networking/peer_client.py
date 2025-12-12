@@ -10,15 +10,15 @@ log = logging.getLogger(__name__)
 
 class PeerClient:
 
-    def send(self, peer_ip: str, peer_port: int, message: Message) -> bool:
+    def send(self, peer_ip: str, peer_port: int, message: Message, timeout: float = None) -> bool:
         payload = message.to_json() + "\n"
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(config.TCP_CONNECT_TIMEOUT)
+            sock.settimeout(timeout if timeout is not None else config.TCP_CONNECT_TIMEOUT)
             try:
                 sock.connect((peer_ip, peer_port))
                 sock.sendall(payload.encode("utf-8"))
                 log.debug("Sent message %s to %s:%s", message.message_id, peer_ip, peer_port)
                 return True
-            except (OSError, ConnectionError) as exc:
+            except (OSError, ConnectionError, TimeoutError) as exc:
                 log.debug("Failed to send to %s:%s (peer may be offline)", peer_ip, peer_port)
                 return False

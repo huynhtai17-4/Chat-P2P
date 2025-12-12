@@ -63,14 +63,15 @@ class StatusBroadcaster:
                         receiver_id=peer.peer_id
                     )
                 
-                success = self.router.peer_client.send(peer.ip, peer.tcp_port, message)
+                timeout = 1.0 if status == "offline" else None
+                success = self.router.peer_client.send(peer.ip, peer.tcp_port, message, timeout=timeout)
                 if success:
                     sent_count += 1
                     log.info("[STATUS] ✓ Sent %s to %s", status.upper(), peer.display_name)
                 else:
                     log.debug("[STATUS] Failed to send %s to %s (peer may be offline)", status.upper(), peer.display_name)
             except Exception as e:
-                log.error("[STATUS] Error sending %s to %s: %s", status, peer.peer_id, e)
+                log.debug("[STATUS] Error sending %s to %s: %s", status, peer.peer_id, e)
         
         log.info("[STATUS] Broadcast complete: %s/%s sent successfully", sent_count, len(friends))
     
@@ -116,7 +117,8 @@ class StatusBroadcaster:
                     receiver_id=peer.peer_id
                 )
             
-            success = self.router.peer_client.send(peer.ip, peer.tcp_port, message)
+            timeout = 1.0 if status == "offline" else None
+            success = self.router.peer_client.send(peer.ip, peer.tcp_port, message, timeout=timeout)
             if success:
                 log.info("[STATUS] ✓ Sent %s to %s", status.upper(), peer.display_name)
                 return True
@@ -124,5 +126,5 @@ class StatusBroadcaster:
                 log.debug("[STATUS] Failed to send %s to %s", status.upper(), peer.display_name)
                 return False
         except Exception as e:
-            log.error("[STATUS] Error sending %s to %s: %s", status, peer_id, e)
+            log.debug("[STATUS] Error sending %s to %s: %s", status, peer_id, e)
             return False

@@ -18,10 +18,36 @@ except ImportError:
 VMWARE_NETWORKS = [
     "192.168.234.",
     "192.168.235.",
+    "192.168.40.",
     "192.168.56.",
     "192.168.122.",
     "169.254.",
-] # Danh sách IP ảo loại bỏ
+    "172.19.",
+]
+
+VIRTUAL_ADAPTER_KEYWORDS = [
+    "vmware",
+    "virtualbox",
+    "vbox",
+    "vethernet",
+    "memu",
+    "nox",
+    "ldplayer",
+    "bluestacks",
+    "docker",
+    "hyper-v",
+    "wsl",
+    "vmnet",
+    "vnic",
+]
+
+def _is_virtual_adapter_by_name(adapter_name: str) -> bool:
+    
+    name_lower = adapter_name.lower()
+    for keyword in VIRTUAL_ADAPTER_KEYWORDS:
+        if keyword in name_lower:
+            return True
+    return False
 
 def _is_virtual_adapter(ip: str) -> bool:
     
@@ -64,6 +90,8 @@ def _get_all_network_ips() -> List[Tuple[str, str]]:
         try:
             interfaces = psutil.net_if_addrs()
             for interface_name, addrs in interfaces.items():
+                if _is_virtual_adapter_by_name(interface_name):
+                    continue
                 for addr in addrs:
                     if addr.family == socket.AF_INET:
                         ip = addr.address
@@ -141,6 +169,23 @@ def get_local_ip(network_mode: Optional[str] = None) -> str:
     if not valid_ips:
         log.warning("Only virtual adapters found")
         return ""
+    
+    wifi_priority = ["wi-fi", "wlan", "wireless"]
+    ethernet_priority = ["ethernet", "eth", "lan"]
+    
+    for name, ip in valid_ips:
+        name_lower = name.lower()
+        if any(keyword in name_lower for keyword in wifi_priority):
+            if ip.startswith("192.168.") or ip.startswith("10."):
+                log.info("Selected WiFi IP: %s (%s)", ip, name)
+                return ip
+    
+    for name, ip in valid_ips:
+        name_lower = name.lower()
+        if any(keyword in name_lower for keyword in ethernet_priority):
+            if ip.startswith("192.168.") or ip.startswith("10."):
+                log.info("Selected Ethernet IP: %s (%s)", ip, name)
+                return ip
     
     for name, ip in valid_ips:
         if ip.startswith("192.168."):
