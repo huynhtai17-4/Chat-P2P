@@ -258,7 +258,12 @@ class ChatCore:
     
     def _handle_call_request(self, peer_id: str, peer_name: str, call_type: str,
                             audio_port: int, video_port: int, peer_ip: str):
-        log.info(f"[Call] Incoming {call_type} call from {peer_name}")
+        log.info(f"[Call] Incoming {call_type} call from {peer_name} (IP: {peer_ip})")
+        log.info(f"[Call] Current CallManager state: {self.call_manager.state.value}")
+        
+        if self.call_manager.state != CallState.IDLE:
+            log.warning(f"[Call] Force resetting CallManager state from {self.call_manager.state.value} to IDLE")
+            self.call_manager.end_call()
         
         call_type_enum = CallType.VIDEO if call_type == "video" else CallType.VOICE
         can_accept = self.call_manager.prepare_incoming_call(
@@ -266,9 +271,10 @@ class ChatCore:
         )
         
         if can_accept:
+            log.info(f"[Call] ✓ Emitting call_request_received signal")
             self.signals.call_request_received.emit(peer_id, peer_name, call_type)
         else:
-            log.warning(f"[Call] Cannot accept call - already in call")
+            log.error(f"[Call] ✗ Cannot accept call - prepare_incoming_call failed")
             self.reject_call(peer_id)
     
     def _handle_call_accept(self, peer_id: str, audio_port: int, video_port: int):

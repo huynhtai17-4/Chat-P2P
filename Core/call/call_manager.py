@@ -32,6 +32,7 @@ class CallManager:
         self.peer_name: Optional[str] = None
         self.peer_ip: Optional[str] = None
         self.peer_tcp_port: Optional[int] = None
+        log.info("[CallManager] Initialized with state=IDLE")
 
         self.local_audio_port = 56000
         self.local_video_port = 57000
@@ -80,8 +81,10 @@ class CallManager:
     def prepare_incoming_call(self, peer_id: str, peer_name: str, peer_ip: str,
                              call_type: CallType, peer_audio_port: int, 
                              peer_video_port: int = 0) -> bool:
+        log.info(f"[CallManager] prepare_incoming_call: current state={self.state.value}")
+        
         if self.state != CallState.IDLE:
-            log.warning("[CallManager] Cannot prepare incoming call - already in call")
+            log.warning(f"[CallManager] Cannot prepare incoming call - state is {self.state.value}, not IDLE")
             return False
 
         self.call_type = call_type
@@ -91,7 +94,7 @@ class CallManager:
         self.peer_audio_port = peer_audio_port
         self.peer_video_port = peer_video_port
 
-        log.info(f"[CallManager] Prepared incoming {call_type.value} call from {peer_name}")
+        log.info(f"[CallManager] ✓ Prepared incoming {call_type.value} call from {peer_name}")
         return True
     
     def accept_incoming_call(self) -> tuple[bool, int, int]:
@@ -165,7 +168,10 @@ class CallManager:
         return True
     
     def end_call(self):
+        log.info(f"[CallManager] end_call: current state={self.state.value}")
+        
         if self.state == CallState.IDLE:
+            log.info("[CallManager] Already IDLE, skipping end_call")
             return
         
         log.info("[CallManager] Ending call")
@@ -183,6 +189,7 @@ class CallManager:
         self.peer_video_port = None
         
         self._notify_state_changed()
+        log.info("[CallManager] ✓ Call ended, state reset to IDLE")
     
     def _start_receivers(self, call_type: CallType) -> bool:
         try:
