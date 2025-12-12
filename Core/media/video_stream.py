@@ -54,6 +54,13 @@ class VideoCapture:
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, VIDEO_HEIGHT)
             self.cap.set(cv2.CAP_PROP_FPS, VIDEO_FPS)
             
+            ret, initial_frame = self.cap.read()
+            if ret and initial_frame is not None:
+                if initial_frame.shape[1] != VIDEO_WIDTH or initial_frame.shape[0] != VIDEO_HEIGHT:
+                    initial_frame = cv2.resize(initial_frame, (VIDEO_WIDTH, VIDEO_HEIGHT))
+                self._latest_frame = initial_frame.copy()
+                log.info("[VideoCapture] Captured initial frame for preview")
+            
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._capture_loop, daemon=True)
             self._thread.start()

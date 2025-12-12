@@ -648,12 +648,13 @@ class MainWindowController(QObject):
         self._active_call_window.mute_toggled.connect(self._on_mute_toggled)
         self._active_call_window.camera_toggled.connect(self._on_camera_toggled)
         
+        self._active_call_window.show()
+        
         if call_type == "video" and hasattr(self._active_call_window, 'update_local_video_frame'):
             self._local_video_timer = QTimer()
             self._local_video_timer.timeout.connect(self._update_local_video)
             self._local_video_timer.start(33)
-        
-        self._active_call_window.show()
+            log.info("[Controller] Started local video update timer")
     
     def _on_call_window_ended(self):
         log.info(f"[Controller] User ended call")
@@ -689,5 +690,10 @@ class MainWindowController(QObject):
             if hasattr(self.chat_core.call_manager, 'get_local_frame'):
                 frame = self.chat_core.call_manager.get_local_frame()
                 if frame is not None and hasattr(self._active_call_window, 'update_local_video_frame'):
-                    self._active_call_window.update_local_video_frame(frame)
+                    try:
+                        self._active_call_window.update_local_video_frame(frame)
+                    except Exception as e:
+                        log.warning(f"[Controller] Failed to update local video: {e}")
+                elif frame is None:
+                    log.debug("[Controller] No local frame available yet")
 
