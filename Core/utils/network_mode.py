@@ -26,9 +26,6 @@ VMWARE_NETWORKS = [
 ]
 
 VIRTUAL_ADAPTER_KEYWORDS = [
-    "vmware",
-    "virtualbox",
-    "vbox",
     "vethernet",
     "memu",
     "nox",
@@ -37,8 +34,6 @@ VIRTUAL_ADAPTER_KEYWORDS = [
     "docker",
     "hyper-v",
     "wsl",
-    "vmnet",
-    "vnic",
 ]
 
 def _is_virtual_adapter_by_name(adapter_name: str) -> bool:
