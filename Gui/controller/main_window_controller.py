@@ -637,6 +637,7 @@ class MainWindowController(QObject):
     
     def _show_active_call_window(self, peer_name: str, call_type: str):
         from Gui.view.call_window import ActiveCallWindow
+        from PySide6.QtCore import QTimer
         
         self._active_call_window = ActiveCallWindow(
             peer_name,
@@ -644,10 +645,22 @@ class MainWindowController(QObject):
             parent=None
         )
         self._active_call_window.call_ended.connect(self._on_call_window_ended)
+        self._active_call_window.mute_toggled.connect(self._on_mute_toggled)
+        self._active_call_window.camera_toggled.connect(self._on_camera_toggled)
+        
+        if call_type == "video" and hasattr(self._active_call_window, 'update_local_video_frame'):
+            self._local_video_timer = QTimer()
+            self._local_video_timer.timeout.connect(self._update_local_video)
+            self._local_video_timer.start(33)
+        
         self._active_call_window.show()
     
     def _on_call_window_ended(self):
         log.info(f"[Controller] User ended call")
+        
+        if hasattr(self, '_local_video_timer') and self._local_video_timer:
+            self._local_video_timer.stop()
+            self._local_video_timer = None
         
         if self._active_call_window:
             self._active_call_window.close()
@@ -655,4 +668,26 @@ class MainWindowController(QObject):
         
         self.chat_core.end_call()
         self._call_peer_id = None
+    
+    def _on_mute_toggled(self, is_muted: bool):
+        log.info(f"[Controller] Mute toggled: {is_muted}")
+        if hasattr(self.chat_core, 'call_manager') and self.chat_core.call_manager:
+            if hasattr(self.chat_core.call_manager, 'toggle_mute'):
+                self.chat_core.call_manager.toggle_mute(is_muted)
+    
+    def _on_camera_toggled(self, is_off: bool):
+        log.info(f"[Controller] Camera toggled: {is_off}")
+        if hasattr(self.chat_core, 'call_manager') and self.chat_core.call_manager:
+            if hasattr(self.chat_core.call_manager, 'toggle_camera'):
+                self.chat_core.call_manager.toggle_camera(is_off)
+    
+    def _update_local_video(self):
+        if not self._active_call_window:
+            return
+        
+        if hasattr(self.chat_core, 'call_manager') and self.chat_core.call_manager:
+            if hasattr(self.chat_core.call_manager, 'get_local_frame'):
+                frame = self.chat_core.call_manager.get_local_frame()
+                if frame is not None and hasattr(self._active_call_window, 'update_local_video_frame'):
+                    self._active_call_window.update_local_video_frame(frame)
 

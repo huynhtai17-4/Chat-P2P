@@ -28,6 +28,7 @@ class AudioCapture:
         self.p_audio = pyaudio.PyAudio()
         self.stream: Optional[pyaudio.Stream] = None
         self._running = False
+        self._muted = False
     
     def start(self) -> bool:
         if self._running:
@@ -76,13 +77,17 @@ class AudioCapture:
         if status:
             log.warning(f"[AudioCapture] Status: {status}")
         
-        if self.on_audio and in_data:
+        if self.on_audio and in_data and not self._muted:
             try:
                 self.on_audio(in_data)
             except Exception as e:
                 log.error(f"[AudioCapture] Error in callback: {e}")
         
         return (None, pyaudio.paContinue)
+    
+    def set_muted(self, muted: bool):
+        self._muted = muted
+        log.info(f"[AudioCapture] Muted: {muted}")
 
 
 class AudioPlayback:

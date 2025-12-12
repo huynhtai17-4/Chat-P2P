@@ -36,6 +36,8 @@ class VideoCapture:
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
         self._running = False
+        self._paused = False
+        self._latest_frame = None
     
     def start(self, camera_index: int = 0) -> bool:
         if self._running:
@@ -94,15 +96,18 @@ class VideoCapture:
                 if frame.shape[1] != VIDEO_WIDTH or frame.shape[0] != VIDEO_HEIGHT:
                     frame = cv2.resize(frame, (VIDEO_WIDTH, VIDEO_HEIGHT))
                 
-                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY]
-                _, buffer = cv2.imencode('.jpg', frame, encode_param)
-                frame_bytes = buffer.tobytes()
+                self._latest_frame = frame.copy()
                 
-                if self.on_frame:
-                    try:
-                        self.on_frame(frame_bytes)
-                    except Exception as e:
-                        log.error(f"[VideoCapture] Error in callback: {e}")
+                if not self._paused:
+                    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY]
+                    _, buffer = cv2.imencode('.jpg', frame, encode_param)
+                    frame_bytes = buffer.tobytes()
+                    
+                    if self.on_frame:
+                        try:
+                            self.on_frame(frame_bytes)
+                        except Exception as e:
+                            log.error(f"[VideoCapture] Error in callback: {e}")
                 
                 time.sleep(frame_delay)
                 
@@ -110,6 +115,13 @@ class VideoCapture:
                 if not self._stop_event.is_set():
                     log.error(f"[VideoCapture] Error in capture loop: {e}")
                 break
+    
+    def set_paused(self, paused: bool):
+        self._paused = paused
+        log.info(f"[VideoCapture] Paused: {paused}")
+    
+    def get_frame(self):
+        return self._latest_frame
 
 
 class VideoDecoder:

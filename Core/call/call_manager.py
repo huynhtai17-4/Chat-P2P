@@ -50,6 +50,9 @@ class CallManager:
         self.on_call_state_changed: Optional[Callable[[CallState], None]] = None
         self.on_remote_video_frame: Optional[Callable[[bytes], None]] = None
         self.on_error: Optional[Callable[[str], None]] = None
+        
+        self._is_muted = False
+        self._is_camera_off = False
     
     def start_outgoing_call(self, peer_id: str, peer_name: str, peer_ip: str, 
                            call_type: CallType) -> tuple[bool, int, int]:
@@ -200,8 +203,11 @@ class CallManager:
             return False
     
     def _on_audio_captured(self, audio_data: bytes):
-        if self.audio_sender and self.state == CallState.ACTIVE:
-            self.audio_sender.send(audio_data)
+        if self.audio_sender and self.state == CallState.ACTIVE and not self._is_muted:
+            if audio_data and len(audio_data) > 0:
+                self.audio_sender.send(audio_data)
+            else:
+                log.warning("[CallManager] Captured empty audio data")
     
     def _on_video_captured(self, frame_bytes: bytes):
         if self.video_sender and self.state == CallState.ACTIVE:
@@ -209,7 +215,12 @@ class CallManager:
     
     def _on_audio_received(self, audio_data: bytes):
         if self.audio_playback and self.state == CallState.ACTIVE:
-            self.audio_playback.play(audio_data)
+            if audio_data and len(audio_data) > 0:
+                self.audio_playback.play(audio_data)
+            else:
+                log.warning("[CallManager] Received empty audio data")
+        else:
+            log.debug(f"[CallManager] Ignoring audio - playback={self.audio_playback is not None}, state={self.state}")
     
     def _on_video_received(self, frame_bytes: bytes):
         if self.on_remote_video_frame and self.state == CallState.ACTIVE:
@@ -258,4 +269,21 @@ class CallManager:
     
     def get_state(self) -> CallState:
         return self.state
+    
+    def toggle_mute(self, is_muted: bool):
+        self._is_muted = is_muted
+        if self.audio_capture:
+            self.audio_capture.set_muted(is_muted)
+        log.info(f"[CallManager] Audio muted: {is_muted}")
+    
+    def toggle_camera(self, is_off: bool):
+        self._is_camera_off = is_off
+        if self.video_capture:
+            self.video_capture.set_paused(is_off)
+        log.info(f"[CallManager] Camera off: {is_off}")
+    
+    def get_local_frame(self):
+        if self.video_capture and not self._is_camera_off:
+            return self.video_capture.get_frame()
+        return None
 

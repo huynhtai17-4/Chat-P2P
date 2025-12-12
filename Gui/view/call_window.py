@@ -17,6 +17,8 @@ except ImportError:
 
 class ActiveCallWindow(QWidget):
     call_ended = Signal()
+    mute_toggled = Signal(bool)
+    camera_toggled = Signal(bool)
     
     def __init__(self, peer_name: str, call_type: str, parent=None):
         super().__init__(parent)
@@ -54,6 +56,7 @@ class ActiveCallWindow(QWidget):
             self.local_video_label.move(620, 20)
             self.local_video_label.setParent(video_container)
             self.local_video_label.raise_()
+            self.local_video_label.show()
             
             layout.addWidget(video_container, 1)
         else:
@@ -181,12 +184,14 @@ class ActiveCallWindow(QWidget):
             self.mute_btn.setText("Unmute")
         else:
             self.mute_btn.setText("Mute")
+        self.mute_toggled.emit(checked)
     
     def _on_camera_toggle(self, checked: bool):
         if checked:
             self.camera_btn.setText("Camera On")
         else:
             self.camera_btn.setText("Camera Off")
+        self.camera_toggled.emit(checked)
     
     def _on_end_call(self):
         self.call_ended.emit()
