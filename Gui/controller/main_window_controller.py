@@ -116,7 +116,7 @@ class MainWindowController(QObject):
     def _refresh_chat_list(self):
         conversations = self._get_conversations()
         self.chat_list_updated.emit(conversations)
-        
+    
     def on_chat_selected(self, chat_id: str, chat_name: str):
         if not chat_id:
             return
@@ -126,7 +126,7 @@ class MainWindowController(QObject):
         self.load_chat_history.emit(chat_id, history)
         self.chat_selected.emit(chat_id, chat_name)
         self._refresh_chat_list()
-    
+
     @Slot(str, int)
     def add_friend_by_ip(self, ip: str, port: int):
         try:
@@ -494,7 +494,7 @@ class MainWindowController(QObject):
         
         if success:
             self._call_peer_id = peer_id
-
+            
             from Gui.view.call_dialog import OutgoingCallDialog
             self._outgoing_call_dialog = OutgoingCallDialog(
                 peer["display_name"],
@@ -522,7 +522,7 @@ class MainWindowController(QObject):
         
         if success:
             self._call_peer_id = peer_id
-
+            
             from Gui.view.call_dialog import OutgoingCallDialog
             self._outgoing_call_dialog = OutgoingCallDialog(
                 peer["display_name"],

@@ -34,7 +34,8 @@ class ActiveCallWindow(QWidget):
         self._init_ui()
         
         if call_type == "video":
-            QTimer.singleShot(100, self._position_local_video)
+            QTimer.singleShot(200, self._position_local_video)
+            QTimer.singleShot(500, self._position_local_video)
     
     def _init_ui(self):
         layout = QVBoxLayout(self)
@@ -59,8 +60,13 @@ class ActiveCallWindow(QWidget):
             self.local_video_label.setFixedSize(160, 120)
             self.local_video_label.setAlignment(Qt.AlignCenter)
             self.local_video_label.setParent(video_container)
+            self.local_video_label.setStyleSheet("background-color: rgba(0, 0, 0, 0.7); border: 2px solid white; border-radius: 4px; color: white; font-weight: bold;")
+            self.local_video_label.setAttribute(Qt.WA_TransparentForMouseEvents, False)
+            self.local_video_label.setAttribute(Qt.WA_NoSystemBackground, False)
+            self.local_video_label.setAutoFillBackground(True)
             self.local_video_label.raise_()
             self.local_video_label.show()
+            self.local_video_label.setVisible(True)
             
             layout.addWidget(video_container, 1)
         else:
@@ -185,6 +191,10 @@ class ActiveCallWindow(QWidget):
             )
             
             self.local_video_label.setPixmap(scaled_pixmap)
+            self.local_video_label.setStyleSheet("border: 2px solid white; border-radius: 4px;")
+            self.local_video_label.raise_()
+            self.local_video_label.setVisible(True)
+            self.local_video_label.update()
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(f"[CallWindow] Failed to display local frame: {e}", exc_info=True)
@@ -208,16 +218,41 @@ class ActiveCallWindow(QWidget):
         self.close()
     
     def _position_local_video(self):
-        if hasattr(self, 'local_video_label') and hasattr(self, 'remote_video_label'):
-            parent_width = self.remote_video_label.width()
-            parent_height = self.remote_video_label.height()
+        if not hasattr(self, 'local_video_label') or not hasattr(self, 'remote_video_label'):
+            return
+        
+        try:
+            container = self.local_video_label.parent()
+            if not container:
+                return
             
-            x = parent_width - self.local_video_label.width() - 20
+            container_width = container.width()
+            container_height = container.height()
+            
+            if container_width == 0 or container_height == 0:
+                return
+            
+            label_width = self.local_video_label.width()
+            label_height = self.local_video_label.height()
+            
+            x = container_width - label_width - 20
             y = 20
+            
+            if x < 0:
+                x = 10
+            if y < 0:
+                y = 10
             
             self.local_video_label.move(x, y)
             self.local_video_label.raise_()
             self.local_video_label.show()
+            self.local_video_label.setVisible(True)
+            
+            import logging
+            logging.getLogger(__name__).debug(f"[CallWindow] Positioned local video at ({x}, {y}), container={container_width}x{container_height}")
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"[CallWindow] Failed to position local video: {e}", exc_info=True)
     
     def resizeEvent(self, event):
         super().resizeEvent(event)
