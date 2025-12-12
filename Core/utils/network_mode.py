@@ -15,14 +15,8 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     log.warning("psutil not available, using fallback network detection")
 
-VMWARE_NETWORKS = [
-    "192.168.234.",
-    "192.168.235.",
-    "192.168.40.",
-    "192.168.56.",
-    "192.168.122.",
+USELESS_IP_RANGES = [
     "169.254.",
-    "172.19.",
 ]
 
 VIRTUAL_ADAPTER_KEYWORDS = [
@@ -44,10 +38,10 @@ def _is_virtual_adapter_by_name(adapter_name: str) -> bool:
             return True
     return False
 
-def _is_virtual_adapter(ip: str) -> bool:
+def _is_useless_ip(ip: str) -> bool:
     
-    for network in VMWARE_NETWORKS:
-        if ip.startswith(network):
+    for ip_range in USELESS_IP_RANGES:
+        if ip.startswith(ip_range):
             return True
     return False
 
@@ -55,7 +49,7 @@ def _is_lan_ip(ip: str) -> bool:
     
     if ip == "127.0.0.1" or ip.startswith("127."):
         return False
-    if _is_virtual_adapter(ip):
+    if _is_useless_ip(ip):
         return False
     
     parts = ip.split(".")
@@ -67,7 +61,7 @@ def _is_lan_ip(ip: str) -> bool:
         second = int(parts[1])
         
         if first == 192 and second == 168:
-            return not _is_virtual_adapter(ip)
+            return True
         if first == 10:
             return True
         if first == 172 and 16 <= second <= 31:
@@ -85,13 +79,12 @@ def _get_all_network_ips() -> List[Tuple[str, str]]:
         try:
             interfaces = psutil.net_if_addrs()
             for interface_name, addrs in interfaces.items():
-                if _is_virtual_adapter_by_name(interface_name):
-                    continue
                 for addr in addrs:
                     if addr.family == socket.AF_INET:
                         ip = addr.address
                         if ip and ip != "127.0.0.1":
                             ips.append((interface_name, ip))
+                            log.debug("Found IP: %s (%s)", ip, interface_name)
         except Exception as e:
             log.warning("Khong the lay danh sach IP cua mang bang psutil: %s", e)
     else:
@@ -152,17 +145,28 @@ def _get_all_network_ips() -> List[Tuple[str, str]]:
 def get_local_ip(network_mode: Optional[str] = None) -> str:
     all_ips = _get_all_network_ips()
     
+    log.info("Found %d network interfaces: %s", len(all_ips), all_ips)
+    
     if not all_ips:
         log.warning("No network interfaces found")
         return ""
     
     valid_ips = []
     for name, ip in all_ips:
-        if not _is_virtual_adapter(ip) and not ip.startswith("127."):
+        if not _is_useless_ip(ip) and not ip.startswith("127."):
             valid_ips.append((name, ip))
+        else:
+            log.debug("Filtered out IP %s (%s)", ip, name)
+    
+    log.info("Valid IPs after filtering: %s", valid_ips)
     
     if not valid_ips:
-        log.warning("Only virtual adapters found")
+        log.warning("Only virtual/loopback adapters found. All IPs: %s", all_ips)
+        if all_ips:
+            for name, ip in all_ips:
+                if not ip.startswith("127."):
+                    log.warning("Using first non-loopback IP as fallback: %s (%s)", ip, name)
+                    return ip
         return ""
     
     wifi_priority = ["wi-fi", "wlan", "wireless"]
