@@ -27,20 +27,32 @@ echo ""
 echo "3. Firewall status:"
 if command -v ufw &> /dev/null; then
     echo "   [UFW]"
-    ufw status | grep -E "(Status|55000)" || echo "   UFW is inactive"
+    sudo ufw status 2>/dev/null | grep -E "(Status|55000)" || echo "   UFW is inactive"
 elif command -v firewall-cmd &> /dev/null; then
     echo "   [firewalld]"
-    firewall-cmd --list-ports | grep 55000 && echo "   ✓ Port 55000 is OPEN" || echo "   ✗ Port 55000 is NOT open"
+    sudo firewall-cmd --list-ports 2>/dev/null | grep 55000 && echo "   ✓ Port 55000 is OPEN" || echo "   ✗ Port 55000 is NOT open"
 elif command -v iptables &> /dev/null; then
     echo "   [iptables]"
-    iptables -L INPUT -n | grep -E "55000|ACCEPT.*tcp" | head -3
+    sudo iptables -L INPUT -n 2>/dev/null | grep -E "55000|ACCEPT.*tcp" | head -3 || echo "   (Run with sudo to check iptables)"
 else
     echo "   No firewall detected or not running"
 fi
 
 echo ""
-echo "4. Ping test (checking network connectivity):"
+echo "4. Network connectivity:"
 ping -c 2 -W 2 8.8.8.8 > /dev/null 2>&1 && echo "   ✓ Internet is reachable" || echo "   ✗ No internet connection"
+
+echo ""
+echo "5. IP Analysis:"
+for ip in $(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v 127.0.0.1); do
+    if [[ $ip == 192.168.40.* ]] || [[ $ip == 192.168.56.* ]] || [[ $ip == 192.168.235.* ]]; then
+        echo "   ⚠ $ip - VMware NAT (may not work with physical machines)"
+    elif [[ $ip == 192.168.1.* ]] || [[ $ip == 192.168.0.* ]]; then
+        echo "   ✓ $ip - LAN IP (good for P2P)"
+    else
+        echo "   ? $ip - Unknown network"
+    fi
+done
 
 echo ""
 echo "=== Troubleshooting ==="

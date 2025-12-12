@@ -28,11 +28,18 @@ elif command -v iptables &> /dev/null; then
     iptables -I INPUT -p tcp --dport 55000:55199 -j ACCEPT
     iptables -I INPUT -p udp --dport 55000:55199 -j ACCEPT
     
-    # Try to save rules
+    # Try to save rules (Kali uses nftables backend)
     if command -v iptables-save &> /dev/null; then
-        iptables-save > /etc/iptables/rules.v4 2>/dev/null || \
-        iptables-save > /etc/sysconfig/iptables 2>/dev/null || \
-        echo "[iptables] Rules applied (may not persist after reboot)"
+        if [ -d /etc/iptables ]; then
+            iptables-save > /etc/iptables/rules.v4 2>/dev/null && echo "[iptables] Rules saved to /etc/iptables/rules.v4"
+        elif [ -f /etc/sysconfig/iptables ]; then
+            iptables-save > /etc/sysconfig/iptables 2>/dev/null && echo "[iptables] Rules saved to /etc/sysconfig/iptables"
+        else
+            echo "[iptables] Rules applied (will reset after reboot)"
+            echo "[iptables] To make persistent, install iptables-persistent:"
+            echo "           sudo apt-get install iptables-persistent"
+            echo "           sudo netfilter-persistent save"
+        fi
     fi
     echo "[iptables] Opened ports 55000-55199 TCP/UDP"
     
