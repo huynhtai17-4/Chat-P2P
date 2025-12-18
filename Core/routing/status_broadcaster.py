@@ -13,6 +13,31 @@ class StatusBroadcaster:
     def __init__(self, router):
         self.router = router
     
+    def _check_network_connectivity(self, peer_ip: str, peer_name: str):
+        """Check if peer is on same subnet and log warnings"""
+        try:
+            # Get local IP
+            local_ip = getattr(self.router, 'local_ip', None)
+            if not local_ip:
+                return
+            
+            # Extract subnets (first 3 octets)
+            local_parts = local_ip.split('.')
+            peer_parts = peer_ip.split('.')
+            
+            if len(local_parts) >= 3 and len(peer_parts) >= 3:
+                local_subnet = f"{local_parts[0]}.{local_parts[1]}.{local_parts[2]}"
+                peer_subnet = f"{peer_parts[0]}.{peer_parts[1]}.{peer_parts[2]}"
+                
+                if local_subnet != peer_subnet:
+                    log.warning("⚠️  NETWORK WARNING: Peer '%s' is on different subnet!", peer_name)
+                    log.warning("   Local IP: %s (subnet: %s.x)", local_ip, local_subnet)
+                    log.warning("   Peer IP:  %s (subnet: %s.x)", peer_ip, peer_subnet)
+                    log.warning("   → Peers on different subnets CANNOT communicate!")
+                    log.warning("   → Solution: Configure VMware/VirtualBox to use 'Bridged' network mode")
+        except Exception as e:
+            log.debug("Network connectivity check failed: %s", e)
+    
     def broadcast_status(self, status: str):
         
         if not self.router.peer_listener or not self.router.peer_listener._thread or not self.router.peer_listener._thread.is_alive():
@@ -28,14 +53,23 @@ class StatusBroadcaster:
         with self.router._lock:
             friends = list(self.router._peers.values())
         
-        log.info("[STATUS] Broadcasting %s to %s friends", status.upper(), len(friends))
+        log.info("=" * 60)
+        log.info("📡 Broadcasting %s to %d friend(s)", status.upper(), len(friends))
+        log.info("=" * 60)
         
         sent_count = 0
+        failed_peers = []
+        
         for peer in friends:
             if not peer.ip or not peer.tcp_port or peer.tcp_port == 0:
-                log.warning("[STATUS] Skipping %s to %s: invalid IP=%s or port=%s", 
-                          status, peer.display_name, peer.ip, peer.tcp_port)
+                log.warning("   ⚠️  Skipping %s: invalid IP=%s or port=%s", 
+                          peer.display_name, peer.ip, peer.tcp_port)
+                failed_peers.append(f"{peer.display_name} (invalid address)")
                 continue
+            
+            # Check network connectivity (subnet mismatch)
+            if status == "online":
+                self._check_network_connectivity(peer.ip, peer.display_name)
             
             try:
                 if status == "online":
@@ -63,17 +97,26 @@ class StatusBroadcaster:
                         receiver_id=peer.peer_id
                     )
                 
-                timeout = 1.0 if status == "offline" else None
+                timeout = 2.0 if status == "offline" else 3.0
+                log.debug("   → Sending %s to %s (%s:%d)...", status.upper(), peer.display_name, peer.ip, peer.tcp_port)
                 success = self.router.peer_client.send(peer.ip, peer.tcp_port, message, timeout=timeout)
+                
                 if success:
                     sent_count += 1
-                    log.info("[STATUS] ✓ Sent %s to %s", status.upper(), peer.display_name)
+                    log.info("   ✅ Sent %s to %s (%s:%d)", status.upper(), peer.display_name, peer.ip, peer.tcp_port)
                 else:
-                    log.debug("[STATUS] Failed to send %s to %s (peer may be offline)", status.upper(), peer.display_name)
+                    log.warning("   ❌ Failed to send %s to %s (%s:%d) - peer may be offline or unreachable", 
+                              status.upper(), peer.display_name, peer.ip, peer.tcp_port)
+                    failed_peers.append(f"{peer.display_name} ({peer.ip})")
             except Exception as e:
-                log.debug("[STATUS] Error sending %s to %s: %s", status, peer.peer_id, e)
+                log.warning("   ❌ Error sending %s to %s: %s", status, peer.display_name, e)
+                failed_peers.append(f"{peer.display_name} ({peer.ip})")
         
-        log.info("[STATUS] Broadcast complete: %s/%s sent successfully", sent_count, len(friends))
+        log.info("=" * 60)
+        log.info("📡 Broadcast complete: %d/%d sent successfully", sent_count, len(friends))
+        if failed_peers:
+            log.warning("⚠️  Failed to reach: %s", ", ".join(failed_peers))
+        log.info("=" * 60)
     
     def send_status_to_peer(self, peer_id: str, status: str):
         if status not in ("online", "offline"):

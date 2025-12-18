@@ -39,8 +39,6 @@ class CallManager:
         self.peer_audio_port: Optional[int] = None
         self.peer_video_port: Optional[int] = None
 
-        log.info(f"[CallManager] Ports configured - Audio: {self.local_audio_port}, Video: {self.local_video_port}")
-
         self.audio_capture: Optional[AudioCapture] = None
         self.audio_playback: Optional[AudioPlayback] = None
         self.video_capture: Optional[VideoCapture] = None
