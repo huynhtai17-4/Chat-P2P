@@ -137,11 +137,26 @@ class MessageHandlers:
                 self.router._outgoing_requests.discard(actual_peer_id)
                 self.router._incoming_requests.discard(actual_peer_id)
             
+            # Verify peer exists and has valid IP/port before sending status
+            with self.router._lock:
+                peer_info = self.router._peers.get(actual_peer_id)
+            
+            if not peer_info:
+                log.warning("[HELLO_REPLY] Cannot send ONLINE: peer %s not found in peers list", actual_peer_id)
+                return
+            
+            if not peer_info.ip or not peer_info.tcp_port or peer_info.tcp_port == 0:
+                log.warning("[HELLO_REPLY] Cannot send ONLINE: peer %s has invalid IP=%s or port=%s", 
+                           actual_peer_id, peer_info.ip, peer_info.tcp_port)
+                return
+            
             # Send ONLINE status to complete the handshake
-            log.info("[HELLO_REPLY] Sending ONLINE status to %s", actual_peer_id)
+            log.info("[HELLO_REPLY] Sending ONLINE status to %s (%s:%s)", display_name, peer_info.ip, peer_info.tcp_port)
             from .status_broadcaster import StatusBroadcaster
             status_mgr = StatusBroadcaster(self.router)
-            status_mgr.send_status_to_peer(actual_peer_id, "online")
+            success = status_mgr.send_status_to_peer(actual_peer_id, "online")
+            if not success:
+                log.debug("[HELLO_REPLY] Failed to send ONLINE status to %s (may retry later)", display_name)
                         
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             log.error("[HELLO_REPLY] Failed to parse: %s", e, exc_info=True)
