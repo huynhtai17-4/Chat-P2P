@@ -96,7 +96,6 @@ class MessageHandlers:
                     if old_peer_id != actual_peer_id:
                         del self.router._peers[old_peer_id]
                         log.info("[HELLO_REPLY] Replacing temp peer_id %s with actual %s", old_peer_id, actual_peer_id)
-                        self.router._friend_request_emitted.discard(old_peer_id)
                         if self.router.data_manager:
                             self.router.data_manager.delete_peer(old_peer_id)
                             log.info("[HELLO_REPLY] Deleted temp peer %s from storage", old_peer_id)
@@ -137,7 +136,6 @@ class MessageHandlers:
             with self.router._lock:
                 self.router._outgoing_requests.discard(actual_peer_id)
                 self.router._incoming_requests.discard(actual_peer_id)
-                self.router._friend_request_emitted.discard(actual_peer_id)
             
             # Send ONLINE status to complete the handshake
             log.info("[HELLO_REPLY] Sending ONLINE status to %s", actual_peer_id)

@@ -39,8 +39,6 @@ class MainWindowController(QObject):
         
         self.chat_core.signals.message_received.connect(self._on_message_received_signal)
         self.chat_core.signals.peer_updated.connect(self._on_peer_updated_signal)
-        self.chat_core.signals.friend_rejected.connect(self._on_friend_rejected_signal)
-        
         self.chat_core.signals.call_request_received.connect(self._on_call_request_received)
         self.chat_core.signals.call_accepted.connect(self._on_call_accepted)
         self.chat_core.signals.call_rejected.connect(self._on_call_rejected)
@@ -312,19 +310,6 @@ class MainWindowController(QObject):
                 self._refresh_chat_list()
         except Exception as e:
             import traceback
-    
-    def _on_friend_rejected_signal(self, peer_id: str):
-        try:
-            peer_name = "Unknown"
-            known_peers = self.chat_core.get_known_peers()
-            for peer in known_peers:
-                if peer["peer_id"] == peer_id:
-                    peer_name = peer.get("display_name", "Unknown")
-                    break
-            
-            self.show_message_box.emit("warning", "Friend Request Rejected", f"{peer_name} rejected your friend request.")
-        except Exception as e:
-            log.error(f"Error handling friend rejected: {e}")
     
     def remove_friend(self, peer_id: str):
         try:

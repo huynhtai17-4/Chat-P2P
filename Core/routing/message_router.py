@@ -43,7 +43,6 @@ class MessageRouter:
         self._peers: Dict[str, PeerInfo] = {}
         self._outgoing_requests: set[str] = set()
         self._incoming_requests: set[str] = set()
-        self._friend_request_emitted: set[str] = set()
         self._peer_send_failures: Dict[str, int] = {}
         
         self.message_handlers = MessageHandlers(self)
