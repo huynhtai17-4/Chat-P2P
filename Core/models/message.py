@@ -21,20 +21,25 @@ class Message:
     audio_data: str = None
     video_data: str = None
 
+    # Chuyển đổi Message thành dict
     def to_dict(self) -> Dict:
         return asdict(self)
 
+    # Chuyển đổi Message thành JSON
     def to_json(self) -> str:
         return json.dumps(self.to_dict(), ensure_ascii=False)
 
+    # Tạo Message từ dict
     @classmethod
     def from_dict(cls, data: Dict) -> "Message":
         return cls(**data)
 
+    # Tạo Message từ JSON
     @classmethod
     def from_json(cls, payload: str) -> "Message":
         return cls.from_dict(json.loads(payload))
 
+    # Tạo Message mới
     @classmethod
     def create(cls, sender_id: str, sender_name: str, receiver_id: str, content: str, 
                msg_type: str = "text", file_name: str = None, file_data: str = None, 
@@ -50,61 +55,6 @@ class Message:
             file_name=file_name,
             file_data=file_data,
             audio_data=audio_data,
-        )
-    
-    @classmethod
-    def create_friend_request(cls, sender_id: str, sender_name: str, receiver_id: str, tcp_port: int = 0) -> "Message":
-        import json
-        content_data = {
-            "tcp_port": tcp_port
-        }
-        return cls.create(
-            sender_id=sender_id,
-            sender_name=sender_name,
-            receiver_id=receiver_id,
-            content=json.dumps(content_data),
-            msg_type="FRIEND_REQUEST",
-        )
-    
-    @classmethod
-    def create_friend_accept(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
-        
-        return cls.create(
-            sender_id=sender_id,
-            sender_name=sender_name,
-            receiver_id=receiver_id,
-            content="FRIEND_ACCEPT",
-            msg_type="FRIEND_ACCEPT",
-        )
-    
-    @classmethod
-    def create_friend_reject(cls, sender_id: str, sender_name: str, receiver_id: str) -> "Message":
-        
-        return cls.create(
-            sender_id=sender_id,
-            sender_name=sender_name,
-            receiver_id=receiver_id,
-            content="FRIEND_REJECT",
-            msg_type="FRIEND_REJECT",
-        )
-    
-    @classmethod
-    def create_friend_sync(cls, sender_id: str, sender_name: str, receiver_id: str, 
-                          peer_ip: str, peer_tcp_port: int) -> "Message":
-        
-        import json
-        sync_data = {
-            "peer_id": sender_id,
-            "display_name": sender_name,
-            "ip": peer_ip,
-            "tcp_port": peer_tcp_port
-        }
-        return cls.create(
-            sender_id=sender_id,
-            sender_name=sender_name,
-            receiver_id=receiver_id,
-            content=json.dumps(sync_data),
-            msg_type="FRIEND_SYNC",
         )
     
     @classmethod

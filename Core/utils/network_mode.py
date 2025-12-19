@@ -69,25 +69,25 @@ def get_local_ip() -> str:
     real_ips, other_ips, virtual_ips = [], [], []
     for name, ip in all_ips:
         if any(ip.startswith(r) for r in USELESS_IP_RANGES): continue
-        if _is_real(name): real_ips.append((name, ip))
-        elif _is_virtual(name, ip): virtual_ips.append((name, ip))
-        else: other_ips.append((name, ip))
+        if _is_real(name): 
+            real_ips.append((name, ip))
+        elif _is_virtual(name, ip): 
+            virtual_ips.append((name, ip))
+        else: 
+            other_ips.append((name, ip))
 
     # Selection Priority
     for group in [real_ips, other_ips, virtual_ips]:
-        # Sub-priority: Common LAN range (192.168.0.x etc)
         for name, ip in group:
             if any(ip.startswith(r) for r in COMMON_LAN_RANGES):
-                log.info(f"✅ SELECTED: {ip} ({name})")
+                log.info(f"SELECTED: {ip} ({name})")
                 return ip
-        # Sub-priority: Any Private IP (192.168.x.x, 10.x.x.x)
         for name, ip in group:
             if ip.startswith(("192.168.", "10.")):
-                log.info(f"✅ SELECTED: {ip} ({name})")
+                log.info(f"SELECTED: {ip} ({name})")
                 return ip
-        # Sub-priority: Any valid IP in this group
         if group:
-            log.info(f"✅ SELECTED: {group[0][1]} ({group[0][0]})")
+            log.info(f"SELECTED: {group[0][1]} ({group[0][0]})")
             return group[0][1]
 
     return all_ips[0][1] if all_ips else ""

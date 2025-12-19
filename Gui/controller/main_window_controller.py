@@ -18,7 +18,6 @@ class MainWindowController(QObject):
     chat_list_updated = Signal(list)
     message_received = Signal(dict)
     chat_selected = Signal(str, str)
-    show_friend_request_dialog = Signal(str, str)
     show_message_box = Signal(str, str, str)
     load_chat_history = Signal(str, list)
     
@@ -40,8 +39,6 @@ class MainWindowController(QObject):
         
         self.chat_core.signals.message_received.connect(self._on_message_received_signal)
         self.chat_core.signals.peer_updated.connect(self._on_peer_updated_signal)
-        self.chat_core.signals.friend_request_received.connect(self._on_friend_request_received_signal)
-        self.chat_core.signals.friend_accepted.connect(self._on_friend_accepted_signal)
         self.chat_core.signals.friend_rejected.connect(self._on_friend_rejected_signal)
         
         self.chat_core.signals.call_request_received.connect(self._on_call_request_received)
@@ -55,7 +52,6 @@ class MainWindowController(QObject):
         self.current_peer_id: str = ""
         self._pending_files = {}
         self._preview_items = {}
-        self.pending_friend_requests: Dict[str, str] = {}
         self._active_request_dialogs: Dict[str, QDialog] = {}
         
         self._incoming_call_dialog: Optional[QDialog] = None
@@ -316,74 +312,6 @@ class MainWindowController(QObject):
                 self._refresh_chat_list()
         except Exception as e:
             import traceback
-    
-    def _on_friend_request_received_signal(self, peer_id: str, display_name: str):
-        try:
-            log.info("Friend request signal received for %s (%s)", display_name, peer_id)
-            
-            if peer_id in self.peers:
-                log.debug("Ignoring friend request from %s: already a friend", peer_id)
-                return
-            
-            if peer_id in self.pending_friend_requests:
-                log.debug("Ignoring duplicate friend request from %s", peer_id)
-                return
-            
-            self.pending_friend_requests[peer_id] = display_name
-            log.info("Showing friend request dialog for %s (%s)", display_name, peer_id)
-            
-            self.show_friend_request_dialog.emit(peer_id, display_name)
-        except Exception as e:
-            import traceback
-            log.error(f"Error in _on_friend_request_received_signal: {e}")
-            self.show_message_box.emit("error", "Error", f"Error processing friend request: {e}")
-    
-    def on_accept_friend_request(self, peer_id: str):
-        display_name = self.pending_friend_requests.pop(peer_id, "Unknown")
-        
-        success = self.chat_core.accept_friend(peer_id)
-        if success:
-            self._update_peers_from_core()
-            self._refresh_chat_list()
-            
-            self.current_peer_id = peer_id
-            self.unread_counts[peer_id] = 0
-            history = self.chat_core.get_message_history(peer_id)
-            self.load_chat_history.emit(peer_id, history)
-            self._refresh_chat_list()
-            
-            self.show_message_box.emit("info", "Friend Added", f"You are now friends with {display_name}! Chat window opened.")
-        else:
-            self.show_message_box.emit("warning", "Error", f"Failed to accept friend request from {display_name}.")
-    
-    def on_reject_friend_request(self, peer_id: str):
-        display_name = self.pending_friend_requests.pop(peer_id, "Unknown")
-        self.chat_core.reject_friend(peer_id)
-    
-    def _on_friend_accepted_signal(self, peer_id: str):
-        try:
-            self.pending_friend_requests.pop(peer_id, None)
-            
-            self._update_peers_from_core()
-            self._refresh_chat_list()
-            
-            peer_name = "Unknown"
-            for peer in self.chat_core.get_known_peers():
-                if peer["peer_id"] == peer_id:
-                    peer_name = peer.get("display_name", "Unknown")
-                    break
-            
-            self.current_peer_id = peer_id
-            self.unread_counts[peer_id] = 0
-            history = self.chat_core.get_message_history(peer_id)
-            self.load_chat_history.emit(peer_id, history)
-            self._refresh_chat_list()
-            
-            self.show_message_box.emit("info", "Friend Request Accepted", f"{peer_name} accepted your friend request! Chat window opened.")
-        except Exception as e:
-            import traceback
-            log.error(f"Error in _on_friend_accepted_signal: {e}")
-            self.show_message_box.emit("error", "Error", f"Error processing friend accept: {e}")
     
     def _on_friend_rejected_signal(self, peer_id: str):
         try:

@@ -19,10 +19,6 @@ class CoreSignals(QObject):
     
     message_received = Signal(dict)
     peer_updated = Signal(dict)
-    friend_request_received = Signal(str, str)
-    friend_accepted = Signal(str)
-    friend_rejected = Signal(str)
-    
     call_request_received = Signal(str, str, str)
     call_accepted = Signal(str)
     call_rejected = Signal(str)
@@ -64,10 +60,6 @@ class ChatCore:
             return
         
         self.router.set_peer_callback(self._handle_peer_update)
-        self.router.set_friend_request_callback(self._handle_friend_request)
-        self.router.set_friend_accepted_callback(self._handle_friend_accepted)
-        self.router.set_friend_rejected_callback(self._handle_friend_rejected)
-        
         self.router.set_call_request_callback(self._handle_call_request)
         self.router.set_call_accept_callback(self._handle_call_accept)
         self.router.set_call_reject_callback(self._handle_call_reject)
@@ -112,18 +104,6 @@ class ChatCore:
     
     def add_peer_by_ip(self, ip: str, port: int, display_name: str = "Unknown") -> Tuple[bool, Optional[str]]:
         return self.router.add_peer_by_ip(ip, port, display_name)
-    
-    def send_friend_request(self, peer_id: str) -> bool:
-        
-        return self.router.send_friend_request(peer_id)
-    
-    def accept_friend(self, peer_id: str) -> bool:
-        
-        return self.router.send_friend_accept(peer_id)
-    
-    def reject_friend(self, peer_id: str) -> bool:
-        
-        return self.router.send_friend_reject(peer_id)
     
     def start_call(self, peer_id: str, call_type: str) -> bool:
         peers = self.router.get_known_peers()
@@ -317,18 +297,6 @@ class ChatCore:
         peer_dict = self._peer_to_dict(peer_info)
         self.signals.peer_updated.emit(peer_dict)
     
-    def _handle_friend_request(self, peer_id: str, display_name: str):
-        
-        self.signals.friend_request_received.emit(peer_id, display_name)
-    
-    def _handle_friend_accepted(self, peer_id: str):
-        
-        self.signals.friend_accepted.emit(peer_id)
-    
-    def _handle_friend_rejected(self, peer_id: str):
-        
-        self.signals.friend_rejected.emit(peer_id)
-
     def _peer_to_dict(self, peer: PeerInfo) -> Dict:
         return {
             "peer_id": peer.peer_id,

@@ -130,154 +130,23 @@ class MessageHandlers:
                     except Exception as e:
                         log.error("[HELLO_REPLY] Error in peer callback: %s", e, exc_info=True)
             
-            log.info("[HELLO_REPLY] Sending FRIEND_REQUEST to %s (%s)", display_name, actual_peer_id)
-            from .friend_request_manager import FriendRequestManager
-            friend_mgr = FriendRequestManager(self.router)
-            success = friend_mgr.send_friend_request(actual_peer_id)
-            if success:
-                log.info("[HELLO_REPLY] Successfully sent FRIEND_REQUEST to %s", actual_peer_id)
-                
-                log.info("[HELLO_REPLY] Sending ONLINE status to %s", actual_peer_id)
-                from .status_broadcaster import StatusBroadcaster
-                status_mgr = StatusBroadcaster(self.router)
-                status_mgr.send_status_to_peer(actual_peer_id, "online")
-            else:
-                log.error("[HELLO_REPLY] Failed to send FRIEND_REQUEST to %s", actual_peer_id)
+            # HELLO_REPLY = Accept friend request automatically
+            log.info("[HELLO_REPLY] Auto-accepting friend request from %s (%s)", display_name, actual_peer_id)
+            
+            # Clean up request tracking
+            with self.router._lock:
+                self.router._outgoing_requests.discard(actual_peer_id)
+                self.router._incoming_requests.discard(actual_peer_id)
+                self.router._friend_request_emitted.discard(actual_peer_id)
+            
+            # Send ONLINE status to complete the handshake
+            log.info("[HELLO_REPLY] Sending ONLINE status to %s", actual_peer_id)
+            from .status_broadcaster import StatusBroadcaster
+            status_mgr = StatusBroadcaster(self.router)
+            status_mgr.send_status_to_peer(actual_peer_id, "online")
                         
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             log.error("[HELLO_REPLY] Failed to parse: %s", e, exc_info=True)
-    
-    def handle_friend_request(self, message: Message, sender_ip: str = ""):
-        log.info("[FRIEND_REQUEST] From %s (%s) at %s", message.sender_name, message.sender_id, sender_ip)
-        
-        peer_tcp_port = 0
-        try:
-            content_data = json.loads(message.content) if message.content else {}
-            peer_tcp_port = content_data.get("tcp_port", 0)
-            log.info("[FRIEND_REQUEST] Extracted tcp_port=%s from content", peer_tcp_port)
-        except:
-            log.warning("[FRIEND_REQUEST] Could not parse tcp_port from content")
-        
-        with self.router._lock:
-            if message.sender_id in self.router._peers:
-                peer = self.router._peers[message.sender_id]
-                if sender_ip and sender_ip != "0.0.0.0":
-                    peer.ip = sender_ip
-                if peer_tcp_port > 0:
-                    peer.tcp_port = peer_tcp_port
-                log.info("[FRIEND_REQUEST] Updated existing peer %s: ip=%s, port=%s", 
-                        message.sender_id, peer.ip, peer.tcp_port)
-            else:
-                log.info("[FRIEND_REQUEST] Auto-adding new peer %s (%s)", message.sender_name, message.sender_id)
-                
-                peer = PeerInfo(
-                    peer_id=message.sender_id,
-                    display_name=message.sender_name,
-                    ip=sender_ip if sender_ip and sender_ip != "0.0.0.0" else "",
-                    tcp_port=peer_tcp_port,
-                    status="offline"
-                )
-                self.router._peers[message.sender_id] = peer
-                
-                if self.router.data_manager:
-                    self.router.data_manager.update_peer(peer)
-                    log.info("[FRIEND_REQUEST] Saved new peer %s to storage", message.sender_name)
-                
-                if self.router._on_peer_callback:
-                    try:
-                        self.router._on_peer_callback(peer)
-                        log.info("[FRIEND_REQUEST] Notified peer callback for new peer %s", message.sender_id)
-                    except Exception as e:
-                        log.error("[FRIEND_REQUEST] Error in peer callback: %s", e)
-                
-                log.info("[FRIEND_REQUEST] Sending ONLINE status to %s", message.sender_id)
-                from .status_broadcaster import StatusBroadcaster
-                status_mgr = StatusBroadcaster(self.router)
-                status_mgr.send_status_to_peer(message.sender_id, "online")
-            
-            if message.sender_id in self.router._incoming_requests:
-                log.info("[FRIEND_REQUEST] Already in incoming_requests: %s", message.sender_id)
-            else:
-                self.router._incoming_requests.add(message.sender_id)
-                log.info("[FRIEND_REQUEST] Added to incoming_requests: %s", message.sender_id)
-        
-        log.info("[FRIEND_REQUEST] Calling friend_request_callback for %s", message.sender_id)
-        if self.router._on_friend_request_callback:
-            try:
-                self.router._on_friend_request_callback(message.sender_id, message.sender_name)
-                log.info("[FRIEND_REQUEST] Successfully called callback for %s", message.sender_id)
-            except Exception as e:
-                log.error("[FRIEND_REQUEST] Error in callback for %s: %s", message.sender_id, e, exc_info=True)
-        else:
-            log.warning("[FRIEND_REQUEST] No callback registered!")
-    
-    def handle_friend_accept(self, message: Message, sender_ip: str = ""):
-        log.info("Friend accepted by %s (%s)", message.sender_name, message.sender_id)
-        
-        with self.router._lock:
-            if message.sender_id not in self.router._peers:
-                log.warning("FRIEND_ACCEPT from %s (%s) but peer not in friends list", 
-                           message.sender_name, message.sender_id)
-                return
-            
-            peer_info = self.router._peers[message.sender_id]
-            if sender_ip:
-                peer_info.ip = sender_ip
-            
-            self.router._outgoing_requests.discard(message.sender_id)
-            self.router._incoming_requests.discard(message.sender_id)
-            self.router._friend_request_emitted.discard(message.sender_id)
-        
-        if self.router.data_manager:
-            self.router.data_manager.update_peer(peer_info)
-            log.info("Updated peer %s (%s) after friend accept", peer_info.display_name, message.sender_id)
-        
-        if self.router._on_peer_callback:
-            try:
-                self.router._on_peer_callback(peer_info)
-            except Exception as e:
-                log.error("Error in _on_peer_callback for friend accept %s: %s", message.sender_id, e, exc_info=True)
-        
-        if self.router._on_friend_accepted_callback:
-            try:
-                self.router._on_friend_accepted_callback(message.sender_id)
-            except Exception as e:
-                log.error("Error in _on_friend_accepted_callback for %s: %s", message.sender_id, e, exc_info=True)
-    
-    def handle_friend_sync(self, message: Message, sender_ip: str = ""):
-        log.info("FRIEND_SYNC received from %s (%s)", message.sender_name, message.sender_id)
-        
-        try:
-            sync_data = json.loads(message.content)
-            peer_ip = sync_data.get("ip", sender_ip if sender_ip else "")
-            peer_tcp_port = int(sync_data.get("tcp_port", 0))
-            
-            if peer_tcp_port < 55000 or peer_tcp_port > 55199:
-                log.warning("FRIEND_SYNC from %s has invalid tcp_port %s", message.sender_id, peer_tcp_port)
-                return
-            
-            with self.router._lock:
-                if message.sender_id in self.router._peers:
-                    peer_info = self.router._peers[message.sender_id]
-                    peer_info.ip = peer_ip
-                    peer_info.tcp_port = peer_tcp_port
-                    peer_info.display_name = message.sender_name
-                else:
-                    log.warning("FRIEND_SYNC from %s but peer not in friends list", message.sender_id)
-                    return
-            
-            if self.router.data_manager:
-                self.router.data_manager.update_peer(peer_info)
-                log.info("Updated peer %s (%s) from FRIEND_SYNC", peer_info.display_name, message.sender_id)
-            
-            if self.router._on_peer_callback:
-                try:
-                    self.router._on_peer_callback(peer_info)
-                except Exception as e:
-                    log.error("Error in _on_peer_callback for FRIEND_SYNC %s: %s", message.sender_id, e, exc_info=True)
-            
-        except (json.JSONDecodeError, ValueError, KeyError) as e:
-            log.error("Failed to parse FRIEND_SYNC from %s: %s", message.sender_id, e)
     
     def handle_status_message(self, message: Message, sender_ip: str = ""):
         msg_type = message.msg_type
@@ -356,16 +225,6 @@ class MessageHandlers:
                     log.info("[STATUS] ✓ Triggered peer callback for %s", peer.display_name)
                 except Exception as e:
                     log.error("[STATUS] ✗ Error in peer callback for %s: %s", message.sender_id, e, exc_info=True)
-    
-    def handle_friend_reject(self, message: Message):
-        log.info("Friend rejected by %s (%s)", message.sender_name, message.sender_id)
-        with self.router._lock:
-            self.router._outgoing_requests.discard(message.sender_id)
-        if self.router._on_friend_rejected_callback:
-            try:
-                self.router._on_friend_rejected_callback(message.sender_id)
-            except Exception as e:
-                log.error("Error in _on_friend_rejected_callback for %s: %s", message.sender_id, e, exc_info=True)
     
     def handle_call_request(self, message: Message, sender_ip: str = ""):
         log.info("[Call] Received CALL_REQUEST from %s (%s)", message.sender_name, message.sender_id)
