@@ -33,6 +33,7 @@ class MessageRouter:
 
         self._on_message_callback: Optional[Callable[[Message], None]] = None
         self._on_peer_callback: Optional[Callable[[PeerInfo], None]] = None
+        self._on_friend_request_callback: Optional[Callable[[str, str, str, int], None]] = None  # peer_id, display_name, ip, port
         self._on_call_request_callback: Optional[Callable[[str, str, str, int, int, str], None]] = None
         self._on_call_accept_callback: Optional[Callable[[str, int, int], None]] = None
         self._on_call_reject_callback: Optional[Callable[[str], None]] = None
@@ -43,6 +44,7 @@ class MessageRouter:
         self._peers: Dict[str, PeerInfo] = {}
         self._outgoing_requests: set[str] = set()
         self._incoming_requests: set[str] = set()
+        self._pending_hello_requests: Dict[str, Tuple[str, str, int]] = {}  # peer_id -> (display_name, ip, port)
         self._peer_send_failures: Dict[str, int] = {}
         
         self.message_handlers = MessageHandlers(self)
@@ -369,6 +371,67 @@ class MessageRouter:
                 log.error("Error in _on_peer_callback for new peer: %s", e, exc_info=True)
         
         return True, temp_peer_id
+    
+    def set_friend_request_callback(self, callback: Optional[Callable[[str, str, str, int], None]]):
+        self._on_friend_request_callback = callback
+    
+    def accept_hello_request(self, peer_id: str) -> bool:
+        """Accept a HELLO friend request and send HELLO_REPLY"""
+        with self._lock:
+            if peer_id not in self._pending_hello_requests:
+                log.warning("[Accept Hello] Peer %s not in pending requests", peer_id)
+                return False
+            
+            display_name, peer_ip, peer_port = self._pending_hello_requests.pop(peer_id)
+        
+        # Add peer to friends list
+        import socket
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect((peer_ip, 80))
+            local_ip = s.getsockname()[0]
+            s.close()
+        except:
+            local_ip = ""
+        
+        peer_info = PeerInfo(
+            peer_id=peer_id,
+            display_name=display_name,
+            ip=peer_ip,
+            tcp_port=peer_port,
+            status="offline"
+        )
+        
+        with self._lock:
+            self._peers[peer_id] = peer_info
+        
+        if self.data_manager:
+            self.data_manager.update_peer(peer_info)
+        
+        if self._on_peer_callback:
+            try:
+                self._on_peer_callback(peer_info)
+            except Exception as e:
+                log.error("Error in _on_peer_callback for accepted hello: %s", e, exc_info=True)
+        
+        # Send HELLO_REPLY
+        self.message_handlers._accept_hello_request(peer_id, peer_ip, peer_port, local_ip)
+        
+        # Send ONLINE status
+        from .status_broadcaster import StatusBroadcaster
+        status_mgr = StatusBroadcaster(self)
+        status_mgr.send_status_to_peer(peer_id, "online")
+        
+        return True
+    
+    def reject_hello_request(self, peer_id: str) -> bool:
+        """Reject a HELLO friend request"""
+        with self._lock:
+            if peer_id in self._pending_hello_requests:
+                del self._pending_hello_requests[peer_id]
+                log.info("[Reject Hello] Rejected friend request from %s", peer_id)
+                return True
+            return False
     
     def set_call_request_callback(self, callback: Optional[Callable[[str, str, str, int, int, str], None]]):
         self._on_call_request_callback = callback

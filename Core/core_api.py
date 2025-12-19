@@ -19,6 +19,7 @@ class CoreSignals(QObject):
     
     message_received = Signal(dict)
     peer_updated = Signal(dict)
+    friend_request_received = Signal(str, str, str, int)  # peer_id, display_name, ip, port
     call_request_received = Signal(str, str, str)
     call_accepted = Signal(str)
     call_rejected = Signal(str)
@@ -60,6 +61,7 @@ class ChatCore:
             return
         
         self.router.set_peer_callback(self._handle_peer_update)
+        self.router.set_friend_request_callback(self._handle_friend_request)
         self.router.set_call_request_callback(self._handle_call_request)
         self.router.set_call_accept_callback(self._handle_call_accept)
         self.router.set_call_reject_callback(self._handle_call_reject)
@@ -296,6 +298,18 @@ class ChatCore:
         
         peer_dict = self._peer_to_dict(peer_info)
         self.signals.peer_updated.emit(peer_dict)
+    
+    def _handle_friend_request(self, peer_id: str, display_name: str, ip: str, port: int):
+        
+        self.signals.friend_request_received.emit(peer_id, display_name, ip, port)
+    
+    def accept_friend_request(self, peer_id: str) -> bool:
+        
+        return self.router.accept_hello_request(peer_id)
+    
+    def reject_friend_request(self, peer_id: str) -> bool:
+        
+        return self.router.reject_hello_request(peer_id)
     
     def _peer_to_dict(self, peer: PeerInfo) -> Dict:
         return {

@@ -67,6 +67,7 @@ class MainWindow(QMainWindow):
         self.controller.chat_list_updated.connect(self._on_chat_list_updated)
         self.controller.message_received.connect(self._on_message_received)
         self.controller.chat_selected.connect(self._on_chat_selected)
+        self.controller.show_friend_request_dialog.connect(self._show_friend_request_dialog)
         self.controller.show_message_box.connect(self._show_message_box)
         self.controller.load_chat_history.connect(self._on_load_chat_history)
 
@@ -174,6 +175,64 @@ class MainWindow(QMainWindow):
                     avatar_path=avatar_path
                 )
             self.center_panel.load_chat_history(history)
+
+    def _show_friend_request_dialog(self, peer_id: str, display_name: str, ip: str, port: int):
+        if peer_id in self._active_request_dialogs:
+            existing_dialog = self._active_request_dialogs[peer_id]
+            if existing_dialog and existing_dialog.isVisible():
+                return
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Friend Request")
+        dialog.setModal(True)
+        dialog.setFixedSize(400, 200)
+        
+        self._active_request_dialogs[peer_id] = dialog
+        
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        message_label = QLabel(f"<b>{display_name}</b> wants to be your friend.<br>IP: {ip}:{port}")
+        message_label.setWordWrap(True)
+        message_label.setStyleSheet("font-size: 14px; padding: 10px;")
+        layout.addWidget(message_label)
+        
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(10)
+        
+        accept_btn = QPushButton("Accept")
+        accept_btn.setObjectName("ModernPrimaryButton")
+        accept_btn.setFixedHeight(40)
+        accept_btn.clicked.connect(lambda: self._on_accept_friend_request(dialog, peer_id))
+        
+        reject_btn = QPushButton("Reject")
+        reject_btn.setStyleSheet("")
+        reject_btn.setFixedHeight(40)
+        reject_btn.clicked.connect(lambda: self._on_reject_friend_request(dialog, peer_id))
+        
+        button_layout.addWidget(accept_btn)
+        button_layout.addWidget(reject_btn)
+        layout.addLayout(button_layout)
+        
+        def cleanup_dialog():
+            if peer_id in self._active_request_dialogs:
+                del self._active_request_dialogs[peer_id]
+        
+        dialog.finished.connect(lambda result: cleanup_dialog())
+        dialog.exec()
+
+    def _on_accept_friend_request(self, dialog: QDialog, peer_id: str):
+        if peer_id in self._active_request_dialogs:
+            del self._active_request_dialogs[peer_id]
+        dialog.accept()
+        self.controller.on_accept_friend_request(peer_id)
+
+    def _on_reject_friend_request(self, dialog: QDialog, peer_id: str):
+        if peer_id in self._active_request_dialogs:
+            del self._active_request_dialogs[peer_id]
+        dialog.reject()
+        self.controller.on_reject_friend_request(peer_id)
 
     def _show_message_box(self, msg_type: str, title: str, message: str):
         if msg_type == "error":

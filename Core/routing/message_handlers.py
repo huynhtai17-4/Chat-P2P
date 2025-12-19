@@ -32,6 +32,10 @@ class MessageHandlers:
             log.warning("[HELLO] Could not extract from HELLO message, using socket: %s:%s", sender_ip, sender_port)
             sender_tcp_port = sender_port
         
+        if sender_tcp_port < 1 or sender_tcp_port > 65535:
+            log.warning("[HELLO] Invalid tcp_port %s", sender_tcp_port)
+            return
+        
         try:
             import socket
             try:
@@ -42,22 +46,57 @@ class MessageHandlers:
             except:
                 local_ip = ""
             
+            # Store pending friend request and notify GUI
+            peer_ip = sender_real_ip if sender_real_ip and sender_real_ip != "0.0.0.0" else sender_ip
+            with self.router._lock:
+                # Check if already a friend
+                if message.sender_id in self.router._peers:
+                    log.info("[HELLO] Peer %s already in friends list, auto-accepting", message.sender_id)
+                    # Auto-accept if already friend
+                    self._accept_hello_request(message.sender_id, sender_real_ip, sender_tcp_port, local_ip)
+                    return
+                
+                # Store pending request
+                self.router._pending_hello_requests[message.sender_id] = (
+                    message.sender_name, peer_ip, sender_tcp_port
+                )
+                log.info("[HELLO] Stored pending friend request from %s (%s) at %s:%s", 
+                        message.sender_name, message.sender_id, peer_ip, sender_tcp_port)
+            
+            # Notify GUI to show dialog
+            if self.router._on_friend_request_callback:
+                try:
+                    self.router._on_friend_request_callback(
+                        message.sender_id, message.sender_name, peer_ip, sender_tcp_port
+                    )
+                    log.info("[HELLO] Notified friend request callback for %s", message.sender_id)
+                except Exception as e:
+                    log.error("[HELLO] Error in friend request callback: %s", e, exc_info=True)
+            else:
+                log.warning("[HELLO] No friend request callback registered, auto-accepting")
+                # Auto-accept if no callback
+                self._accept_hello_request(message.sender_id, sender_real_ip, sender_tcp_port, local_ip)
+        except Exception as e:
+            log.error("[HELLO] Error processing HELLO: %s", e, exc_info=True)
+    
+    def _accept_hello_request(self, peer_id: str, peer_ip: str, peer_port: int, local_ip: str):
+        """Helper method to accept a HELLO request and send HELLO_REPLY"""
+        try:
+            # Send HELLO_REPLY (accept friend request)
             reply_msg = Message.create_hello_reply(
                 sender_id=self.router.peer_id,
                 sender_name=self.router.display_name or "Unknown",
-                receiver_id=message.sender_id,
+                receiver_id=peer_id,
                 peer_ip=local_ip,
                 peer_tcp_port=self.router.tcp_port
             )
             
-            log.info("[HELLO] Replying with our info: peer_id=%s, name=%s, ip=%s, port=%s", 
-                    self.router.peer_id, self.router.display_name, local_ip, self.router.tcp_port)
-            
-            success = self.router.peer_client.send(sender_real_ip, sender_tcp_port, reply_msg)
+            log.info("[HELLO] Sending HELLO_REPLY to %s:%s", peer_ip, peer_port)
+            success = self.router.peer_client.send(peer_ip, peer_port, reply_msg)
             if success:
-                log.info("[HELLO] Successfully sent HELLO_REPLY to %s:%s", sender_real_ip, sender_tcp_port)
+                log.info("[HELLO] Successfully sent HELLO_REPLY to %s:%s", peer_ip, peer_port)
             else:
-                log.warning("[HELLO] Failed to send HELLO_REPLY to %s:%s", sender_real_ip, sender_tcp_port)
+                log.warning("[HELLO] Failed to send HELLO_REPLY to %s:%s", peer_ip, peer_port)
         except Exception as e:
             log.error("[HELLO] Error sending HELLO_REPLY: %s", e, exc_info=True)
     

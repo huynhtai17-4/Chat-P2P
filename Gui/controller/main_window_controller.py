@@ -18,6 +18,7 @@ class MainWindowController(QObject):
     chat_list_updated = Signal(list)
     message_received = Signal(dict)
     chat_selected = Signal(str, str)
+    show_friend_request_dialog = Signal(str, str, str, int)  # peer_id, display_name, ip, port
     show_message_box = Signal(str, str, str)
     load_chat_history = Signal(str, list)
     
@@ -39,6 +40,7 @@ class MainWindowController(QObject):
         
         self.chat_core.signals.message_received.connect(self._on_message_received_signal)
         self.chat_core.signals.peer_updated.connect(self._on_peer_updated_signal)
+        self.chat_core.signals.friend_request_received.connect(self._on_friend_request_received_signal)
         self.chat_core.signals.call_request_received.connect(self._on_call_request_received)
         self.chat_core.signals.call_accepted.connect(self._on_call_accepted)
         self.chat_core.signals.call_rejected.connect(self._on_call_rejected)
@@ -51,6 +53,7 @@ class MainWindowController(QObject):
         self._pending_files = {}
         self._preview_items = {}
         self._active_request_dialogs: Dict[str, QDialog] = {}
+        self.pending_friend_requests: Dict[str, Tuple[str, str, int]] = {}  # peer_id -> (display_name, ip, port)
         
         self._incoming_call_dialog: Optional[QDialog] = None
         self._outgoing_call_dialog: Optional[QDialog] = None
@@ -450,6 +453,55 @@ class MainWindowController(QObject):
                 "Call Failed",
                 "Failed to start call. Peer may be offline."
             )
+    
+    def _on_friend_request_received_signal(self, peer_id: str, display_name: str, ip: str, port: int):
+        try:
+            log.info("Friend request signal received for %s (%s) at %s:%s", display_name, peer_id, ip, port)
+            
+            if peer_id in self.peers:
+                log.debug("Ignoring friend request from %s: already a friend", peer_id)
+                return
+            
+            if peer_id in self.pending_friend_requests:
+                log.debug("Ignoring duplicate friend request from %s", peer_id)
+                return
+            
+            self.pending_friend_requests[peer_id] = (display_name, ip, port)
+            log.info("Showing friend request dialog for %s (%s)", display_name, peer_id)
+            
+            self.show_friend_request_dialog.emit(peer_id, display_name, ip, port)
+        except Exception as e:
+            import traceback
+            log.error(f"Error in _on_friend_request_received_signal: {e}")
+            self.show_message_box.emit("error", "Error", f"Error processing friend request: {e}")
+    
+    def on_accept_friend_request(self, peer_id: str):
+        if peer_id not in self.pending_friend_requests:
+            log.warning("Cannot accept friend request: peer %s not in pending requests", peer_id)
+            return
+        
+        display_name, ip, port = self.pending_friend_requests.pop(peer_id)
+        
+        success = self.chat_core.accept_friend_request(peer_id)
+        if success:
+            self._update_peers_from_core()
+            self._refresh_chat_list()
+            
+            self.current_peer_id = peer_id
+            self.unread_counts[peer_id] = 0
+            history = self.chat_core.get_message_history(peer_id)
+            self.load_chat_history.emit(peer_id, history)
+            self._refresh_chat_list()
+            
+            self.show_message_box.emit("info", "Friend Added", f"You are now friends with {display_name}! Chat window opened.")
+        else:
+            self.show_message_box.emit("warning", "Error", f"Failed to accept friend request from {display_name}.")
+    
+    def on_reject_friend_request(self, peer_id: str):
+        if peer_id in self.pending_friend_requests:
+            display_name, ip, port = self.pending_friend_requests.pop(peer_id)
+            self.chat_core.reject_friend_request(peer_id)
+            log.info("Rejected friend request from %s", display_name)
     
     def _on_call_request_received(self, peer_id: str, peer_name: str, call_type: str):
         log.info(f"[Controller] Incoming {call_type} call from {peer_name}")
