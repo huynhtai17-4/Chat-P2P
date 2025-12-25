@@ -16,6 +16,7 @@ class PeerManager:
         with self.router._lock:
             return list(self.router._peers.values())
     
+    # Thông báo cho giao diện GUI về các peer đã biết
     def notify_existing_peers(self):
         
         if not self.router._on_peer_callback:

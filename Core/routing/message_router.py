@@ -126,7 +126,7 @@ class MessageRouter:
                 peer.status = "offline"
             log.info("Loaded %s friends from peers.json (all set to offline initially)", len(self._peers))
             for peer_id, peer in self._peers.items():
-                log.info("  - Friend: %s (%s) at %s:%s", peer.display_name, peer_id[:8], peer.ip, peer.tcp_port)
+                log.info("Friend: %s (%s) at %s:%s", peer.display_name, peer_id[:8], peer.ip, peer.tcp_port)
         
         self._notify_existing_peers()
         
@@ -376,7 +376,6 @@ class MessageRouter:
         self._on_friend_request_callback = callback
     
     def accept_hello_request(self, peer_id: str) -> bool:
-        """Accept a HELLO friend request and send HELLO_REPLY"""
         with self._lock:
             if peer_id not in self._pending_hello_requests:
                 log.warning("[Accept Hello] Peer %s not in pending requests", peer_id)

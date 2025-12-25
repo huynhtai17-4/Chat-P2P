@@ -87,11 +87,6 @@ class ActiveCallWindow(QWidget):
             name_label.setAlignment(Qt.AlignCenter)
             info_layout.addWidget(name_label)
             
-            self.status_label = QLabel("00:00")
-            self.status_label.setObjectName("CallStatusLabel")
-            self.status_label.setAlignment(Qt.AlignCenter)
-            info_layout.addWidget(self.status_label)
-            
             layout.addWidget(info_widget, 1)
         
         controls_panel = self._create_controls_panel()
@@ -107,13 +102,7 @@ class ActiveCallWindow(QWidget):
         layout.setSpacing(20)
         
         layout.addStretch()
-        
-        self.mute_btn = QPushButton("Mute")
-        self.mute_btn.setObjectName("MuteButton")
-        self.mute_btn.setFixedSize(80, 50)
-        self.mute_btn.setCheckable(True)
-        self.mute_btn.clicked.connect(self._on_mute_toggle)
-        layout.addWidget(self.mute_btn)
+    
         
         self.end_btn = QPushButton()
         self.end_btn.setObjectName("EndCallButton")
@@ -123,13 +112,6 @@ class ActiveCallWindow(QWidget):
         self.end_btn.clicked.connect(self._on_end_call)
         layout.addWidget(self.end_btn)
         
-        if self.call_type == "video":
-            self.camera_btn = QPushButton("Camera Off")
-            self.camera_btn.setObjectName("CameraButton")
-            self.camera_btn.setFixedSize(100, 50)
-            self.camera_btn.setCheckable(True)
-            self.camera_btn.clicked.connect(self._on_camera_toggle)
-            layout.addWidget(self.camera_btn)
         
         layout.addStretch()
         
@@ -258,4 +240,3 @@ class ActiveCallWindow(QWidget):
         super().resizeEvent(event)
         if self.call_type == "video":
             self._position_local_video()
-

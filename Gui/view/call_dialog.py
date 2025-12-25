@@ -52,7 +52,7 @@ class IncomingCallDialog(QDialog):
         
         self.reject_btn = QPushButton()
         self.reject_btn.setObjectName("RejectCallButton")
-        self.reject_btn.setIcon(QIcon("Gui/assets/icons/phone.svg"))
+        self.reject_btn.setIcon(QIcon("Gui/assets/icons/no-phone.svg"))
         self.reject_btn.setIconSize(QSize(28, 28))
         self.reject_btn.setFixedSize(60, 60)
         self.reject_btn.clicked.connect(self._on_reject)

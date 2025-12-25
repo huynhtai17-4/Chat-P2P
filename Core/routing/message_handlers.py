@@ -46,24 +46,19 @@ class MessageHandlers:
             except:
                 local_ip = ""
             
-            # Store pending friend request and notify GUI
             peer_ip = sender_real_ip if sender_real_ip and sender_real_ip != "0.0.0.0" else sender_ip
             with self.router._lock:
-                # Check if already a friend
                 if message.sender_id in self.router._peers:
                     log.info("[HELLO] Peer %s already in friends list, auto-accepting", message.sender_id)
-                    # Auto-accept if already friend
                     self._accept_hello_request(message.sender_id, sender_real_ip, sender_tcp_port, local_ip)
                     return
                 
-                # Store pending request
                 self.router._pending_hello_requests[message.sender_id] = (
                     message.sender_name, peer_ip, sender_tcp_port
                 )
                 log.info("[HELLO] Stored pending friend request from %s (%s) at %s:%s", 
                         message.sender_name, message.sender_id, peer_ip, sender_tcp_port)
             
-            # Notify GUI to show dialog
             if self.router._on_friend_request_callback:
                 try:
                     self.router._on_friend_request_callback(
@@ -74,15 +69,12 @@ class MessageHandlers:
                     log.error("[HELLO] Error in friend request callback: %s", e, exc_info=True)
             else:
                 log.warning("[HELLO] No friend request callback registered, auto-accepting")
-                # Auto-accept if no callback
                 self._accept_hello_request(message.sender_id, sender_real_ip, sender_tcp_port, local_ip)
         except Exception as e:
             log.error("[HELLO] Error processing HELLO: %s", e, exc_info=True)
     
     def _accept_hello_request(self, peer_id: str, peer_ip: str, peer_port: int, local_ip: str):
-        """Helper method to accept a HELLO request and send HELLO_REPLY"""
         try:
-            # Send HELLO_REPLY (accept friend request)
             reply_msg = Message.create_hello_reply(
                 sender_id=self.router.peer_id,
                 sender_name=self.router.display_name or "Unknown",
@@ -168,15 +160,12 @@ class MessageHandlers:
                     except Exception as e:
                         log.error("[HELLO_REPLY] Error in peer callback: %s", e, exc_info=True)
             
-            # HELLO_REPLY = Accept friend request automatically
             log.info("[HELLO_REPLY] Auto-accepting friend request from %s (%s)", display_name, actual_peer_id)
             
-            # Clean up request tracking
             with self.router._lock:
                 self.router._outgoing_requests.discard(actual_peer_id)
                 self.router._incoming_requests.discard(actual_peer_id)
             
-            # Verify peer exists and has valid IP/port before sending status
             with self.router._lock:
                 peer_info = self.router._peers.get(actual_peer_id)
             
@@ -189,7 +178,6 @@ class MessageHandlers:
                            actual_peer_id, peer_info.ip, peer_info.tcp_port)
                 return
             
-            # Send ONLINE status to complete the handshake
             log.info("[HELLO_REPLY] Sending ONLINE status to %s (%s:%s)", display_name, peer_info.ip, peer_info.tcp_port)
             from .status_broadcaster import StatusBroadcaster
             status_mgr = StatusBroadcaster(self.router)
@@ -242,7 +230,7 @@ class MessageHandlers:
                 except (json.JSONDecodeError, ValueError):
                     pass
             
-            log.info("[STATUS] ✓ Updated %s (%s): %s -> %s (IP: %s, Port: %s)", 
+            log.info("[STATUS] Updated %s (%s): %s -> %s (IP: %s, Port: %s)", 
                     peer.display_name, message.sender_id, old_status, new_status,
                     peer.ip, peer.tcp_port)
             
@@ -267,16 +255,16 @@ class MessageHandlers:
                         avatar_base64=avatar_base64
                     )
                     self.router.peer_client.send(peer.ip, peer.tcp_port, reply_msg)
-                    log.info("[STATUS] ✓ Sent ONLINE reply to %s", peer.display_name)
+                    log.info("[STATUS] Sent ONLINE reply to %s", peer.display_name)
                 except Exception as e:
                     log.debug("[STATUS] Failed to send ONLINE reply to %s: %s", peer.display_name, e)
             
             if self.router._on_peer_callback:
                 try:
                     self.router._on_peer_callback(peer)
-                    log.info("[STATUS] ✓ Triggered peer callback for %s", peer.display_name)
+                    log.info("[STATUS] Triggered peer callback for %s", peer.display_name)
                 except Exception as e:
-                    log.error("[STATUS] ✗ Error in peer callback for %s: %s", message.sender_id, e, exc_info=True)
+                    log.error("[STATUS Error in peer callback for %s: %s", message.sender_id, e, exc_info=True)
     
     def handle_call_request(self, message: Message, sender_ip: str = ""):
         log.info("[Call] Received CALL_REQUEST from %s (%s)", message.sender_name, message.sender_id)
